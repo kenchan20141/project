@@ -1,28 +1,27 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncCast | Editorial Screen Sharing</title>
-    
-    <!-- 引入字體：Playfair Display (襯線體) 與 Inter (現代無襯線) -->
+    <title>SyncCast - Screen Sharing Studio</title>
+
+    <!-- 引入字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
-    
+
     <!-- 引入 PeerJS 與 QRCode 庫 -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
-        /* --- 莫蘭迪時尚雜誌風 (Morandi Editorial Theme) --- */
+        /* --- 莫蘭迪時尚雜誌風 --- */
         :root {
-            --morandi-bg: #EAE5DF;       /* 燕麥灰背景 */
-            --morandi-surface: #F5F3EF;  /* 暖白卡片 */
-            --morandi-primary: #7A8485;  /* 鼠尾草灰綠 (主色) */
+            --morandi-bg: #EAE5DF;
+            --morandi-surface: #F5F3EF;
+            --morandi-primary: #7A8485;
             --morandi-primary-hover: #606A6B;
-            --morandi-text: #2C302E;     /* 炭灰色文字 */
-            --morandi-muted: #8E8A85;    /* 輔助文字 */
-            --morandi-border: #D1CEC5;   /* 優雅細線 */
-            
+            --morandi-text: #2C302E;
+            --morandi-muted: #8E8A85;
+            --morandi-border: #D1CEC5;
             --font-serif: 'Playfair Display', serif;
             --font-sans: 'Inter', sans-serif;
         }
@@ -33,194 +32,95 @@
             background-color: var(--morandi-bg);
             color: var(--morandi-text);
             font-family: var(--font-sans);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 24px 16px; 
-            box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 24px 16px; 
             -webkit-font-smoothing: antialiased;
         }
 
-        /* 裝飾性背景文字 */
         body::before {
-            content: "VOL. 1";
-            position: absolute;
-            top: 24px; left: 24px;
+            content: "VOL. 1"; position: absolute; top: 24px; left: 24px;
             font-size: 11px; letter-spacing: 4px; color: var(--morandi-muted);
-            font-family: var(--font-sans);
         }
 
         .container {
-            background: var(--morandi-surface);
-            border: 1px solid var(--morandi-border);
-            padding: 32px 24px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 10px 10px 40px rgba(0,0,0,0.04);
-            position: relative;
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            box-sizing: border-box;
+            background: var(--morandi-surface); border: 1px solid var(--morandi-border);
+            padding: 32px 24px; width: 100%; max-width: 400px;
+            text-align: center; box-shadow: 10px 10px 40px rgba(0,0,0,0.04);
+            position: relative; transition: opacity 0.4s ease, transform 0.4s ease;
         }
 
-        @media (min-width: 480px) {
-            .container {
-                padding: 48px 40px;
-            }
-        }
+        @media (min-width: 480px) { .container { padding: 48px 40px; } }
 
-        .hidden { 
-            display: none !important; 
-            opacity: 0; 
-            pointer-events: none; 
-            transform: translateY(10px);
-        }
+        .hidden { display: none !important; opacity: 0; pointer-events: none; transform: translateY(10px); }
         
-        h1 { 
-            font-family: var(--font-serif); 
-            font-size: 32px; 
-            font-weight: 400; 
-            margin-bottom: 12px; 
-            color: var(--morandi-text);
-            font-style: italic;
-        }
+        h1 { font-family: var(--font-serif); font-size: 32px; font-weight: 400; margin-bottom: 12px; font-style: italic; }
         
-        p.subtitle { 
-            color: var(--morandi-muted); 
-            font-size: 13px; 
-            letter-spacing: 2px; 
-            text-transform: uppercase;
-            margin-bottom: 32px; 
-            position: relative;
-        }
-        
-        p.subtitle::after {
-            content: ""; display: block; width: 40px; height: 1px;
-            background: var(--morandi-border); margin: 16px auto 0;
-        }
+        p.subtitle { color: var(--morandi-muted); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 32px; position: relative; }
+        p.subtitle::after { content: ""; display: block; width: 40px; height: 1px; background: var(--morandi-border); margin: 16px auto 0; }
 
         button {
-            width: 100%; padding: 16px; margin-bottom: 16px;
-            font-size: 14px; font-weight: 400; letter-spacing: 1px;
-            font-family: var(--font-sans); text-transform: uppercase;
-            border: 1px solid var(--morandi-border); 
-            background: transparent; color: var(--morandi-text);
-            cursor: pointer; transition: all 0.3s ease;
+            width: 100%; padding: 16px; margin-bottom: 16px; font-size: 14px; font-weight: 400;
+            letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--morandi-border); 
+            background: transparent; color: var(--morandi-text); cursor: pointer; transition: all 0.3s ease;
         }
         button:hover { background: rgba(0,0,0,0.03); }
-        
-        button.primary { 
-            background: var(--morandi-primary); 
-            color: #FFF; 
-            border: none; 
-        }
-        button.primary:hover { 
-            background: var(--morandi-primary-hover); 
-            box-shadow: 0 8px 20px rgba(122,132,133,0.3);
-            transform: translateY(-1px);
-        }
+        button.primary { background: var(--morandi-primary); color: #FFF; border: none; }
+        button.primary:hover { background: var(--morandi-primary-hover); box-shadow: 0 8px 20px rgba(122,132,133,0.3); transform: translateY(-1px); }
 
         input {
-            width: 100%; padding: 16px 0; margin-bottom: 32px;
-            background: transparent; border: none;
-            border-bottom: 1px solid var(--morandi-border);
-            color: var(--morandi-text); font-size: 24px;
-            font-family: var(--font-serif);
-            text-align: center; outline: none; transition: border-color 0.3s;
-            text-transform: uppercase;
+            width: 100%; padding: 16px 0; margin-bottom: 32px; background: transparent; border: none;
+            border-bottom: 1px solid var(--morandi-border); color: var(--morandi-text); font-size: 24px;
+            font-family: var(--font-serif); text-align: center; outline: none; transition: border-color 0.3s; text-transform: uppercase;
         }
         input::placeholder { color: #D1CEC5; font-family: var(--font-sans); font-size: 14px; letter-spacing: 2px; }
         input:focus { border-bottom-color: var(--morandi-primary); }
 
         .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
-        .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; text-align: center; }
+        .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; }
         
         .preview-wrapper {
-            width: 100%; aspect-ratio: 16/9; background: #E5E2DA;
-            border: 1px solid var(--morandi-border);
-            margin-bottom: 24px; position: relative; overflow: hidden;
-            display: flex; align-items: center; justify-content: center;
+            width: 100%; aspect-ratio: 16/9; background: #E5E2DA; border: 1px solid var(--morandi-border);
+            margin-bottom: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
         }
         
-        video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: contain; 
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
-        }
+        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; }
         .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
 
-        /* 響應式 QR Code 容器 */
-        #qrcode { 
-            display: flex; 
-            justify-content: center; 
-            margin: 24px auto 0; 
-            width: 100%;
-            max-width: 140px; 
-        }
-        #qrcode img, #qrcode canvas { 
-            width: 100% !important;
-            height: auto !important;
-            border: 8px solid #FFF; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-            box-sizing: border-box;
-        }
+        #qrcode { display: flex; justify-content: center; margin: 24px auto 0; width: 100%; max-width: 140px; }
+        #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 8px solid #FFF; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
-        .status-text { font-size: 13px; color: var(--morandi-primary); display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .status-text { font-size: 13px; color: var(--morandi-primary); display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; }
         .status-dot { width: 6px; height: 6px; background: var(--morandi-primary); border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         /* 觀眾播放區 */
         #viewer-player {
-            position: fixed; inset: 0; background: #111; z-index: 999;
+            position: fixed; inset: 0; background: #1A1A1A; z-index: 999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        #remote-video { width: 100%; height: 100%; object-fit: contain; }
         
         .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; }
         .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
         
         #manual-play-btn {
-            position: absolute; z-index: 1000;
-            padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
-            color: #FFF; backdrop-filter: blur(4px); display: none;
-            cursor: pointer; font-family: var(--font-sans); font-size: 14px;
+            position: absolute; z-index: 1000; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+            color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px;
         }
 
-        /* --- 系統診斷控制台樣式 (Diagnostics Panel) --- */
-        .debug-btn {
-            position: fixed; bottom: 16px; right: 16px; z-index: 10000;
-            padding: 8px 16px; background: rgba(44, 48, 46, 0.85); border: 1px solid var(--morandi-border);
-            color: #EAE5DF; font-family: monospace; font-size: 11px; cursor: pointer; letter-spacing: 1px;
+        /* --- 開發者除錯系統面板 --- */
+        #debug-panel {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 40vh;
+            background: rgba(15, 15, 15, 0.95); color: #55ff55;
+            font-family: 'Courier New', Courier, monospace; font-size: 11px;
+            z-index: 99999; display: none; flex-direction: column;
+            padding: 10px; box-sizing: border-box; border-top: 1px solid #333;
         }
-        .debug-panel {
-            position: fixed; bottom: 0; left: 0; right: 0; height: 260px;
-            background: #111111; border-top: 1px solid #333; z-index: 9999;
-            display: flex; flex-direction: column; font-family: monospace; color: #2ecc71;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.5); transition: transform 0.3s ease;
+        #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.5; padding-right: 5px; }
+        #btn-debug {
+            position: fixed; bottom: 12px; right: 12px; z-index: 99998; 
+            background: rgba(44, 48, 46, 0.9); color: #fff; border: 1px solid #7A8485; 
+            padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: auto; margin: 0;
         }
-        .debug-panel.collapsed {
-            transform: translateY(100%);
-        }
-        .debug-header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 16px; border-bottom: 1px solid #222; background: #161616;
-            color: #eee; font-size: 12px; letter-spacing: 1px;
-        }
-        .debug-header button {
-            width: auto; padding: 4px 10px; margin: 0; font-size: 10px;
-            color: #eee; border-color: #444; background: transparent;
-        }
-        .debug-header button:hover { background: rgba(255,255,255,0.1); }
-        .debug-logs {
-            flex: 1; padding: 12px 16px; overflow-y: auto; font-size: 11px; line-height: 1.6;
-        }
-        .log-line { margin-bottom: 4px; word-break: break-all; }
-        .log-time { color: #888; margin-right: 6px; }
-        .log-error { color: #e74c3c; }
-        .log-warn { color: #f1c40f; }
     </style>
 </head>
 <body>
@@ -238,7 +138,7 @@
         <h1>Studio</h1>
         <p class="subtitle">Broadcast Dashboard</p>
         
-        <div class="info-label text-center">Room Access Code</div>
+        <div class="info-label">Room Access Code</div>
         <div id="room-id" class="code-display">...</div>
         
         <div class="preview-wrapper">
@@ -246,7 +146,7 @@
             <video id="local-video" autoplay playsinline muted></video>
         </div>
 
-        <div class="status-text mb-4" style="margin-bottom: 24px;">
+        <div class="status-text">
             <span class="status-dot"></span>Connected Viewers: <span id="viewer-count" style="margin-left:4px; font-weight:600;">0</span>
         </div>
 
@@ -272,89 +172,97 @@
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
 
-    <!-- 5. 系統診斷控制台 -->
-    <button class="debug-btn" onclick="toggleDebugPanel()">Debug</button>
-    <div id="debug-panel" class="debug-panel collapsed">
-        <div class="debug-header">
-            <span>System Logs & Diagnostics</span>
-            <button onclick="toggleDebugPanel()">CLOSE</button>
+    <!-- 5. 錯誤偵測除錯面板 -->
+    <div id="debug-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #333;">
+            <span style="font-weight:bold; color:#fff;">System Diagnostics (WebRTC & ICE)</span>
+            <button onclick="toggleDebug()" style="padding: 2px 8px; font-size: 10px; width: auto; margin: 0; border: 1px solid #fff; background: transparent; color: #fff;">Close</button>
         </div>
-        <div id="debug-logs" class="debug-logs"></div>
+        <div id="debug-content"></div>
     </div>
+    <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
-        // 配置全球公共 STUN 與 Metered Open Relay 提供的免費中繼 TURN 伺服器
-        // 用以解決 4G/5G 行動網路或對稱型防火牆下的 WebRTC 穿透失敗問題
+        // ----------------------------------------------------------------
+        // WebRTC 網路配置 (解決手機 Disconnected 痛點)
+        // 包含 Cloudflare (支援 IPv6) 與 免費公共 TURN Server (穿越對稱型 NAT)
+        // ----------------------------------------------------------------
         const peerConfig = { 
-            debug: 1,
+            debug: 2, 
             config: { 
-                'iceServers': [
+                iceServers: [
+                    { urls: 'stun:stun.cloudflare.com:3478' },
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' },
-                    // 使用 Metered Open Relay 免費公共中繼服務
-                    {
+                    // 使用 Metered 提供的免費開源 TURN 伺服器，專治行動網路 NAT 穿透失敗
+                    { 
                         urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelay',
-                        credential: 'openrelay'
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
                     },
-                    {
+                    { 
                         urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelay',
-                        credential: 'openrelay'
-                    },
-                    {
-                        urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-                        username: 'openrelay',
-                        credential: 'openrelay'
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
                     }
                 ],
-                'iceCandidatePoolSize': 10
+                iceCandidatePoolSize: 10,
+                sdpSemantics: 'unified-plan'
             }
         };
         
         let peer = null;
         let localStream = null;
-        let connectedViewers = new Map(); // 儲存 peerId -> { dataConnection }
-        let activeCalls = new Map();       // 儲存 peerId -> MediaConnection
+        let connectedViewers = new Map(); // peerId -> { dataConnection }
+        let activeCalls = new Map();      // peerId -> MediaConnection
+        let reconnectTimers = new Map();  // peerId -> timeoutId
 
+        /* ================= 除錯日誌系統 ================= */
+        function logDebug(msg, isError = false, isWarning = false) {
+            const panel = document.getElementById('debug-panel');
+            const content = document.getElementById('debug-content');
+            
+            if ((isError || isWarning) && (panel.style.display === 'none' || panel.style.display === '')) {
+                panel.style.display = 'flex';
+            }
+
+            const line = document.createElement('div');
+            if (isError) line.style.color = '#ff5555';
+            else if (isWarning) line.style.color = '#ffaa00';
+            else line.style.color = '#55ff55';
+            
+            line.style.marginBottom = '6px';
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            line.innerText = `[${time}] ${msg}`;
+            
+            content.appendChild(line);
+            content.scrollTop = content.scrollHeight;
+            
+            if (isError) console.error(msg); 
+            else if (isWarning) console.warn(msg);
+            else console.log(msg);
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debug-panel');
+            panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        /* ================= 系統初始化 ================= */
         window.onload = () => {
-            log("System Initialized.");
+            if (window.location.protocol === 'http:' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+                logDebug("WARNING: WebRTC requires HTTPS. Mobile browsers will block media requests.", true);
+            }
+
             const urlParams = new URLSearchParams(window.location.search);
             const roomParam = urlParams.get('room');
             if (roomParam) {
-                log("Detected Room ID from URL: " + roomParam);
                 document.getElementById('join-id').value = roomParam;
                 document.getElementById('view-home').classList.add('hidden');
                 document.getElementById('view-viewer').classList.remove('hidden');
                 document.getElementById('viewer-subtitle').innerText = "Access Code Loaded";
+                logDebug(`Auto-loaded Room ID: ${roomParam}`);
             }
         };
-
-        /* ================= 系統診斷日誌功能 ================= */
-        function log(message, type = 'info') {
-            const logsContainer = document.getElementById('debug-logs');
-            if (!logsContainer) return;
-
-            const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-            const logLine = document.createElement('div');
-            logLine.className = 'log-line';
-            if (type === 'error') logLine.classList.add('log-error');
-            if (type === 'warn') logLine.classList.add('log-warn');
-
-            logLine.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
-            logsContainer.appendChild(logLine);
-            logsContainer.scrollTop = logsContainer.scrollHeight;
-            console.log(`[${time}] [${type.toUpperCase()}] ${message}`);
-        }
-
-        function toggleDebugPanel() {
-            const panel = document.getElementById('debug-panel');
-            panel.classList.toggle('collapsed');
-        }
 
         function switchView(viewId) {
             document.querySelectorAll('.container, #viewer-player').forEach(el => el.classList.add('hidden'));
@@ -362,11 +270,12 @@
         }
 
         function initRole(role) {
-            log(`Role selected: ${role}`);
             if (role === 'presenter') {
+                logDebug("Booting Studio Mode...");
                 switchView('view-presenter');
                 setupPresenter();
             } else {
+                logDebug("Booting Viewer Mode...");
                 switchView('view-viewer');
             }
         }
@@ -374,148 +283,115 @@
         /* ================= 講者端邏輯 ================= */
         function setupPresenter() {
             const roomId = generateShortID();
-            log(`Setting up Presenter with Room ID: ${roomId}`);
             
-            if (peer) {
-                try { peer.destroy(); } catch(e){}
-            }
-
+            if (peer) { try { peer.destroy(); } catch(e){} }
             peer = new Peer(roomId, peerConfig); 
             
             peer.on('open', (id) => {
-                log(`Presenter Peer Server connected. Room ID: ${id}`);
+                logDebug(`Studio Created. ID: ${id}`);
                 document.getElementById('room-id').innerText = id;
-                const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
                 
+                const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
                 const qrContainer = document.getElementById("qrcode");
                 qrContainer.innerHTML = "";
-                
-                new QRCode(qrContainer, {
-                    text: joinUrl, 
-                    width: 128, 
-                    height: 128,
-                    colorDark: "#2C302E", 
-                    colorLight: "#F5F3EF",
-                    correctLevel: QRCode.CorrectLevel.M
-                });
+                new QRCode(qrContainer, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
             });
 
             peer.on('connection', (conn) => {
-                log(`Incoming connection request from: ${conn.peer}`);
+                logDebug(`Viewer Data connection initiated: ${conn.peer}`);
                 cleanupViewer(conn.peer);
 
                 const handleConnectionOpen = () => {
-                    log(`Data connection successfully opened with: ${conn.peer}`);
+                    logDebug(`Viewer ${conn.peer} data channel OPEN.`);
                     connectedViewers.set(conn.peer, { data: conn });
                     updateViewerCount();
-
-                    // 綁定基礎 WebRTC 狀態監控
-                    if (conn.peerConnection) {
-                        conn.peerConnection.oniceconnectionstatechange = () => {
-                            log(`Viewer ${conn.peer.substring(0,6)} ICE Connection State: ${conn.peerConnection.iceConnectionState}`);
-                        };
-                    }
                 };
 
-                if (conn.open) {
-                    handleConnectionOpen();
-                } else {
-                    conn.on('open', handleConnectionOpen);
-                }
+                if (conn.open) handleConnectionOpen(); else conn.on('open', handleConnectionOpen);
 
                 conn.on('data', (data) => {
-                    log(`Received signal from viewer: ${data.type}`);
-                    if (data.type === 'VIEWER_READY' && localStream) {
-                        callViewer(conn.peer);
+                    if (data.type === 'VIEWER_READY') {
+                        logDebug(`Viewer ${conn.peer} is ready for stream.`);
+                        if (localStream) callViewer(conn.peer);
                     }
                 });
 
-                conn.on('close', () => {
-                    log(`Viewer ${conn.peer} data connection closed.`);
-                    cleanupViewer(conn.peer);
-                });
-
-                conn.on('error', (err) => {
-                    log(`Viewer ${conn.peer} connection error: ${err.message}`, 'error');
-                    cleanupViewer(conn.peer);
-                });
+                conn.on('close', () => { logDebug(`Viewer ${conn.peer} left.`); cleanupViewer(conn.peer); });
+                conn.on('error', (err) => { logDebug(`Data Channel Error (${conn.peer}): ${err.message}`, true); cleanupViewer(conn.peer); });
             });
 
             peer.on('error', (err) => {
-                log(`Presenter core error: ${err.type}`, 'error');
-                if (err.type === 'unavailable-id') {
-                    setupPresenter();
-                }
+                logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
+                if (err.type === 'unavailable-id') setupPresenter();
             });
         }
 
         function cleanupViewer(peerId) {
+            clearTimeout(reconnectTimers.get(peerId));
             if (connectedViewers.has(peerId)) {
-                const viewer = connectedViewers.get(peerId);
-                try { viewer.data.close(); } catch(e){}
+                try { connectedViewers.get(peerId).data.close(); } catch(e){}
                 connectedViewers.delete(peerId);
             }
             if (activeCalls.has(peerId)) {
-                const call = activeCalls.get(peerId);
-                try { call.close(); } catch(e){}
+                try { activeCalls.get(peerId).close(); } catch(e){}
                 activeCalls.delete(peerId);
             }
             updateViewerCount();
         }
 
-        function updateViewerCount() {
-            document.getElementById('viewer-count').innerText = connectedViewers.size;
-        }
+        function updateViewerCount() { document.getElementById('viewer-count').innerText = connectedViewers.size; }
 
         function callViewer(peerId) {
             if (!localStream) return;
-            
-            if (activeCalls.has(peerId)) {
-                log(`Media call already active with ${peerId}. Skipping.`);
-                return;
-            }
+            if (activeCalls.has(peerId)) { logDebug(`Already calling ${peerId}, skipping duplicate call.`); return; }
 
-            log(`Initiating video call to viewer: ${peerId}`);
-            const call = peer.call(peerId, localStream);
-            if (call) {
-                activeCalls.set(peerId, call);
+            try {
+                logDebug(`Dialing viewer: ${peerId} (Sending Screen Stream)`);
+                const call = peer.call(peerId, localStream);
                 
-                if (call.peerConnection) {
-                    call.peerConnection.oniceconnectionstatechange = () => {
-                        log(`Media Call ICE State: ${call.peerConnection.iceConnectionState}`);
-                    };
+                if (call) {
+                    activeCalls.set(peerId, call);
+                    
+                    if (call.peerConnection) {
+                        call.peerConnection.addEventListener('connectionstatechange', () => {
+                            const state = call.peerConnection.connectionState;
+                            logDebug(`[${peerId}] WebRTC Media State -> ${state.toUpperCase()}`);
+                            
+                            // 自動重連機制：如果出現 disconnected 或 failed，代表 NAT 穿透失敗或網路切換
+                            if (state === 'disconnected' || state === 'failed') {
+                                logDebug(`[${peerId}] Media connection lost! Triggering auto-reconnect in 3s...`, false, true);
+                                activeCalls.delete(peerId);
+                                try { call.close(); } catch(e){}
+                                
+                                clearTimeout(reconnectTimers.get(peerId));
+                                reconnectTimers.set(peerId, setTimeout(() => {
+                                    if (connectedViewers.has(peerId) && localStream) {
+                                        logDebug(`[${peerId}] Executing auto-reconnect now...`);
+                                        callViewer(peerId);
+                                    }
+                                }, 3000));
+                            }
+                        });
+                    }
+                    
+                    call.on('close', () => { activeCalls.delete(peerId); logDebug(`Call closed for ${peerId}`); });
+                    call.on('error', (err) => { logDebug(`Media Error [${peerId}]: ${err.message}`, true); activeCalls.delete(peerId); });
                 }
-
-                call.on('close', () => {
-                    log(`Media call with ${peerId} closed.`);
-                    activeCalls.delete(peerId);
-                });
-                
-                call.on('error', (err) => {
-                    log(`Media call with ${peerId} failed: ${err.message}`, 'error');
-                    activeCalls.delete(peerId);
-                });
+            } catch (err) {
+                logDebug(`Failed to construct call to ${peerId}: ${err.message}`, true);
             }
         }
 
         async function startScreenShare() {
             try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-                    throw new Error("您的瀏覽器或設備不支援螢幕分享功能。");
-                }
-
-                log("Requesting screen capturing permissions...");
-                // 使用基礎相容規格，排除多餘限制，增加手機授權成功率
-                const constraints = { 
-                    video: true, 
+                logDebug("Requesting Display Media...");
+                localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
                     audio: false 
-                };
+                });
                 
-                localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
-                log("Screen sharing permission granted.");
-                
-                const localVideo = document.getElementById('local-video');
-                localVideo.srcObject = localStream;
+                logDebug("Display Media Acquired!");
+                document.getElementById('local-video').srcObject = localStream;
                 document.querySelector('.preview-placeholder').style.display = 'none';
 
                 const btnShare = document.getElementById('btn-share');
@@ -523,60 +399,33 @@
                 btnShare.style.background = "#6B7A75"; 
                 
                 localStream.getVideoTracks()[0].onended = () => {
-                    log("Screen capture track ended by system.");
-                    stopScreenShare();
+                    logDebug("User stopped screen sharing via browser UI.");
+                    btnShare.innerText = "Start Screen Share";
+                    btnShare.style.background = "var(--morandi-primary)";
+                    document.getElementById('local-video').srcObject = null;
+                    document.querySelector('.preview-placeholder').style.display = 'block';
+                    
+                    connectedViewers.forEach(v => { try { v.data.send({ type: 'STOP_SHARE' }); } catch(e){} });
+                    activeCalls.forEach(c => { try { c.close(); } catch(e){} });
+                    activeCalls.clear();
+                    localStream = null;
                 };
 
-                // 分享啟動後，呼叫當前所有已排隊的觀眾
+                // 通知並發送給所有已連接的觀眾
                 connectedViewers.forEach((viewer, peerId) => {
                     try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                     callViewer(peerId);
                 });
 
             } catch (err) {
-                log(`Failed to initiate screen share: ${err.message || err.name}`, 'error');
-                let userFriendlyMessage = "無法啟動螢幕分享。";
-                if (err.name === 'NotAllowedError') {
-                    userFriendlyMessage = "存取遭拒。請授權瀏覽器進行「螢幕錄製」或「螢幕分享」權限。";
-                } else if (err.name === 'NotFoundError' || err.name === 'NotSupportedError') {
-                    userFriendlyMessage = "您的裝置系統限制了網頁端的螢幕共享功能。";
-                } else {
-                    userFriendlyMessage += ` (原因: ${err.message || err.name})`;
-                }
-                alert(userFriendlyMessage);
+                logDebug(`Screen Share Blocked: ${err.message}`, true);
+                alert("無法存取螢幕，請確認瀏覽器權限。手機/平板本身通常不支援發起螢幕分享，請用電腦操作。");
             }
-        }
-
-        function stopScreenShare() {
-            log("Stopping screen sharing...");
-            const btnShare = document.getElementById('btn-share');
-            btnShare.innerText = "Start Screen Share";
-            btnShare.style.background = "var(--morandi-primary)";
-            
-            const localVideo = document.getElementById('local-video');
-            localVideo.srcObject = null;
-            document.querySelector('.preview-placeholder').style.display = 'block';
-            
-            connectedViewers.forEach(viewer => {
-                try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){}
-            });
-
-            activeCalls.forEach(call => {
-                try { call.close(); } catch(e){}
-            });
-            activeCalls.clear();
-
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            log("Screen sharing successfully stopped.");
         }
 
         function generateShortID() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let id = '';
-            for (let i = 0; i < 4; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+            let id = ''; for (let i = 0; i < 4; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
             return id;
         }
 
@@ -585,118 +434,100 @@
             const hostId = document.getElementById('join-id').value.trim().toUpperCase();
             if (!hostId) return;
 
+            logDebug(`Connecting to Host: ${hostId}`);
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
-            loadingMsg.innerText = "Initializing connection...";
+            loadingMsg.innerText = "Initializing network...";
 
-            log(`Viewer connecting to Host ID: ${hostId}`);
-
-            if (peer) {
-                try { peer.destroy(); } catch(e){}
-            }
-
+            if (peer) { try { peer.destroy(); } catch(e){} }
             peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
-                log("Incoming media stream session received from Presenter.");
+                logDebug(`Incoming video stream from Host... Answering.`);
                 call.answer(); 
                 
                 if (call.peerConnection) {
-                    call.peerConnection.oniceconnectionstatechange = () => {
-                        log(`Media Channel WebRTC State: ${call.peerConnection.iceConnectionState}`);
-                    };
+                    call.peerConnection.addEventListener('connectionstatechange', () => {
+                        const state = call.peerConnection.connectionState;
+                        logDebug(`Viewer WebRTC State -> ${state.toUpperCase()}`);
+                        if (state === 'disconnected' || state === 'failed') {
+                            logDebug("Connection lost. Waiting for Host to auto-reconnect...", false, true);
+                            document.getElementById('player-loading').style.display = 'block';
+                            loadingMsg.innerText = "Reconnecting to stream...";
+                        }
+                    });
+                    
+                    call.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                        logDebug(`Viewer ICE State -> ${call.peerConnection.iceConnectionState.toUpperCase()}`);
+                    });
                 }
-
+                
                 call.on('stream', (remoteStream) => {
-                    log("Media Stream tracks received. Binding to player...");
+                    logDebug("Media stream successfully received!");
                     document.getElementById('player-loading').style.display = 'none';
                     
                     const videoEl = document.getElementById('remote-video');
-                    videoEl.srcObject = remoteStream;
+                    if (videoEl.srcObject !== remoteStream) videoEl.srcObject = remoteStream;
                     
-                    videoEl.onloadedmetadata = () => {
-                        videoEl.play().then(() => {
-                            log("Stream media playback started successfully.");
+                    // 確保手機版播放不會卡住
+                    logDebug("Triggering video playback...");
+                    const playPromise = videoEl.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            logDebug("Autoplay succeeded!");
+                            document.getElementById('manual-play-btn').style.display = 'none';
                         }).catch(e => {
-                            log("Autoplay blocked by mobile browser privacy policy. Showing overlay trigger.", 'warn');
+                            logDebug(`Browser Blocked Autoplay: ${e.message}. Require tap.`, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
-                    };
+                    }
                 });
 
-                call.on('close', () => {
-                    log("Media stream closed by host.");
-                    alert('Session stream closed.');
-                    location.reload();
-                });
+                call.on('close', () => { logDebug('Host dropped the stream.'); });
+                call.on('error', (err) => { logDebug(`Media Stream Error: ${err.message}`, true); });
             });
 
             peer.on('open', (viewerId) => {
-                log(`Viewer Peer Ready. My ID: ${viewerId}`);
-                loadingMsg.innerText = `Connecting to Studio: ${hostId}...`;
+                logDebug(`Viewer Identity Ready: ${viewerId}`);
+                loadingMsg.innerText = `Contacting Studio...`;
                 
                 const conn = peer.connect(hostId, { reliable: true });
                 
-                // 綁定基礎 WebRTC 連線狀態檢測
-                if (conn.peerConnection) {
-                    log(`Data Channel WebRTC State: ${conn.peerConnection.iceConnectionState}`);
-                    conn.peerConnection.oniceconnectionstatechange = () => {
-                        const state = conn.peerConnection.iceConnectionState;
-                        log(`Data Channel WebRTC State: ${state}`);
-                        if (state === 'failed') {
-                            log("Direct connection failed. Retrying with TURN relay...", "warn");
-                        }
-                    };
-                }
-
                 const handleConnOpen = () => {
-                    log("Data connection handshake established.");
+                    logDebug("Data Channel Connected. Informing Host we are ready.");
                     loadingMsg.innerText = "Connected! Waiting for host to share screen...";
                     conn.send({ type: 'VIEWER_READY' });
                 };
 
-                if (conn.open) {
-                    handleConnOpen();
-                } else {
-                    conn.on('open', handleConnOpen);
-                }
+                if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
 
                 conn.on('data', (data) => {
-                    log(`Received signal from Host: ${data.type}`);
-                    if (data.type === 'STOP_SHARE') {
-                        alert('Presenter stopped sharing.');
-                        location.reload();
+                    logDebug(`Host Signal: ${data.type}`);
+                    if (data.type === 'STOP_SHARE') { 
+                        logDebug('Host stopped screen share.', false, true); 
+                        document.getElementById('player-loading').style.display = 'block';
+                        loadingMsg.innerText = "Presenter paused sharing. Waiting...";
+                        document.getElementById('remote-video').srcObject = null;
                     }
                 });
 
-                conn.on('close', () => { 
-                    log("Connection closed by host.");
-                    alert('Host ended the session.'); 
-                    location.reload(); 
-                });
-
-                conn.on('error', (err) => {
-                    log(`Data connection error: ${err.message}`, 'error');
-                    alert('Connection lost.');
-                    location.reload();
-                });
+                conn.on('close', () => { logDebug('Host ended the entire session.', true); alert('Host disconnected.'); location.reload(); });
+                conn.on('error', (err) => { logDebug(`Data Channel Error: ${err.message}`, true); });
             });
 
             peer.on('error', (err) => {
-                log(`Viewer core PeerJS error: ${err.type}`, 'error');
-                alert("Cannot find host. Please check the Access Code or network settings.");
-                location.reload();
+                logDebug(`PeerJS Core Error [${err.type}]: ${err.message}`, true);
             });
         }
 
         function forcePlay() {
-            log("Manual playback trigger selected.");
+            logDebug("Manual playback triggered by user.");
             const videoEl = document.getElementById('remote-video');
             videoEl.play().then(() => {
+                logDebug("Manual playback succeeded.");
                 document.getElementById('manual-play-btn').style.display = 'none';
-                log("Forced stream playback successful.");
             }).catch(e => {
-                log(`Forced playback failed: ${e.message}`, 'error');
+                logDebug(`Manual playback failed: ${e.message}`, true);
             });
         }
     </script>
