@@ -262,11 +262,6 @@
         let activeCalls = new Map();       // 儲存 peerId -> MediaConnection
 
         window.onload = () => {
-            // 安全上下文檢查
-            if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                console.warn("WebRTC requires an HTTPS environment to function correctly across devices.");
-            }
-
             const urlParams = new URLSearchParams(window.location.search);
             const roomParam = urlParams.get('room');
             if (roomParam) {
@@ -401,14 +396,19 @@
 
         async function startScreenShare() {
             try {
-                localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { 
-                        width: { ideal: 1920, max: 2560 },
-                        height: { ideal: 1080, max: 1440 },
-                        frameRate: { ideal: 30, max: 60 }
-                    }, 
+                // 檢查是否支援 getDisplayMedia API
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                    throw new Error("您的瀏覽器或設備不支援螢幕分享功能。");
+                }
+
+                // 移除自訂解析度限制以避免手機瀏覽器不支援拋出錯誤
+                // 使用最基本的請求設置，確保瀏覽器能夠直接召喚系統權限詢問
+                const constraints = { 
+                    video: true, 
                     audio: false 
-                });
+                };
+                
+                localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
                 
                 const localVideo = document.getElementById('local-video');
                 localVideo.srcObject = localStream;
@@ -419,33 +419,51 @@
                 btnShare.style.background = "#6B7A75"; 
                 
                 localStream.getVideoTracks()[0].onended = () => {
-                    btnShare.innerText = "Start Screen Share";
-                    btnShare.style.background = "var(--morandi-primary)";
-                    localVideo.srcObject = null;
-                    document.querySelector('.preview-placeholder').style.display = 'block';
-                    
-                    // 通知所有觀眾
-                    connectedViewers.forEach(viewer => {
-                        try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){}
-                    });
-
-                    // 釋放舊連線
-                    activeCalls.forEach(call => {
-                        try { call.close(); } catch(e){}
-                    });
-                    activeCalls.clear();
-                    localStream = null;
+                    stopScreenShare();
                 };
 
-                // 開始分享後，通知目前已連線的所有觀眾
+                // 開始分享後，通知目前已連線的所有觀眾並呼叫
                 connectedViewers.forEach((viewer, peerId) => {
                     try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                     callViewer(peerId);
                 });
 
             } catch (err) {
-                console.error(err);
-                alert("無法存取螢幕，請確認瀏覽器權限或是否處於安全 HTTPS 環境下。");
+                console.error("Screen Share details:", err);
+                
+                let userFriendlyMessage = "無法啟動螢幕分享。";
+                if (err.name === 'NotAllowedError') {
+                    userFriendlyMessage = "存取遭拒。請授權瀏覽器進行「螢幕錄製」或「螢幕分享」權限。";
+                } else if (err.name === 'NotFoundError' || err.name === 'NotSupportedError') {
+                    userFriendlyMessage = "您的裝置系統限制了網頁端的螢幕共享功能。";
+                } else {
+                    userFriendlyMessage += ` (錯誤原因: ${err.message || err.name})`;
+                }
+                alert(userFriendlyMessage);
+            }
+        }
+
+        function stopScreenShare() {
+            const btnShare = document.getElementById('btn-share');
+            btnShare.innerText = "Start Screen Share";
+            btnShare.style.background = "var(--morandi-primary)";
+            
+            const localVideo = document.getElementById('local-video');
+            localVideo.srcObject = null;
+            document.querySelector('.preview-placeholder').style.display = 'block';
+            
+            connectedViewers.forEach(viewer => {
+                try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){}
+            });
+
+            activeCalls.forEach(call => {
+                try { call.close(); } catch(e){}
+            });
+            activeCalls.clear();
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
             }
         }
 
