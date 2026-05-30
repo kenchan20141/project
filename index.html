@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncCast | Editorial Screen Sharing</title>
-    
+    <title>SyncCast - Screen Sharing Studio</title>
+
     <!-- 引入字體：Playfair Display (襯線體) 與 Inter (現代無襯線) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
-    
+
     <!-- 引入 PeerJS 與 QRCode 庫 -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -65,9 +65,7 @@
         }
 
         @media (min-width: 480px) {
-            .container {
-                padding: 48px 40px;
-            }
+            .container { padding: 48px 40px; }
         }
 
         .hidden { 
@@ -188,6 +186,24 @@
             color: #FFF; backdrop-filter: blur(4px); display: none;
             cursor: pointer; font-family: var(--font-sans); font-size: 14px;
         }
+
+        /* --- 開發者除錯系統面板 --- */
+        #debug-panel {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh;
+            background: rgba(15, 15, 15, 0.95); color: #55ff55;
+            font-family: 'Courier New', Courier, monospace; font-size: 12px;
+            z-index: 99999; display: none; flex-direction: column;
+            padding: 10px; box-sizing: border-box; border-top: 1px solid #333;
+        }
+        #debug-content {
+            flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.4; padding-right: 5px;
+        }
+        #btn-debug {
+            position: fixed; bottom: 12px; right: 12px; z-index: 99998; 
+            background: rgba(44, 48, 46, 0.8); color: #fff; border: 1px solid #7A8485; 
+            padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
+            width: auto; margin: 0; text-transform: none; letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -235,21 +251,30 @@
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
+        <!-- 確保 playsinline 與 muted 存在以符合行動版瀏覽器政策 -->
         <video id="remote-video" autoplay playsinline muted></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
 
+    <!-- 5. 錯誤偵測除錯面板 -->
+    <div id="debug-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #333;">
+            <span style="font-weight:bold; color:#fff;">System Logs & Diagnostics</span>
+            <button onclick="toggleDebug()" style="padding: 2px 8px; font-size: 10px; width: auto; margin: 0; border: 1px solid #fff; background: transparent; color: #fff;">Close</button>
+        </div>
+        <div id="debug-content"></div>
+    </div>
+    <button id="btn-debug" onclick="toggleDebug()">Debug</button>
+
     <script>
-        // 配置穩定的全球公共 STUN 伺服器
+        // 設定 STUN Server (提供跨網域 NAT 穿透功能)
         const peerConfig = { 
-            debug: 1,
+            debug: 2, 
             config: { 
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                     { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
                     { urls: 'stun:global.stun.twilio.com:3478' }
                 ],
                 'iceCandidatePoolSize': 10
@@ -258,13 +283,38 @@
         
         let peer = null;
         let localStream = null;
-        let connectedViewers = new Map(); // 儲存 peerId -> { dataConnection }
-        let activeCalls = new Map();       // 儲存 peerId -> MediaConnection
+        let connectedViewers = new Map(); 
+        let activeCalls = new Map();       
+
+        /* ================= 除錯日誌核心 ================= */
+        function logDebug(msg, isError = false) {
+            const panel = document.getElementById('debug-panel');
+            const content = document.getElementById('debug-content');
+            
+            // 發生錯誤時自動彈出 Debug 視窗
+            if (isError && (panel.style.display === 'none' || panel.style.display === '')) {
+                panel.style.display = 'flex';
+            }
+
+            const line = document.createElement('div');
+            line.style.color = isError ? '#ff5555' : '#55ff55';
+            line.style.marginBottom = '4px';
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            line.innerText = `[${time}] ${msg}`;
+            content.appendChild(line);
+            content.scrollTop = content.scrollHeight;
+            
+            if (isError) console.error(msg); else console.log(msg);
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debug-panel');
+            panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+        }
 
         window.onload = () => {
-            // 安全上下文檢查
             if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                console.warn("WebRTC requires an HTTPS environment to function correctly across devices.");
+                logDebug("WARNING: WebRTC requires an HTTPS environment. Connection may fail on mobile devices.", true);
             }
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -274,6 +324,7 @@
                 document.getElementById('view-home').classList.add('hidden');
                 document.getElementById('view-viewer').classList.remove('hidden');
                 document.getElementById('viewer-subtitle').innerText = "Access Code Loaded";
+                logDebug("Detected Room ID from URL: " + roomParam);
             }
         };
 
@@ -284,9 +335,11 @@
 
         function initRole(role) {
             if (role === 'presenter') {
+                logDebug("Initializing as Presenter (Studio)");
                 switchView('view-presenter');
                 setupPresenter();
             } else {
+                logDebug("Initializing as Viewer");
                 switchView('view-viewer');
             }
         }
@@ -295,78 +348,58 @@
         function setupPresenter() {
             const roomId = generateShortID();
             
-            if (peer) {
-                try { peer.destroy(); } catch(e){}
-            }
-
+            if (peer) { try { peer.destroy(); } catch(e){} }
             peer = new Peer(roomId, peerConfig); 
             
             peer.on('open', (id) => {
+                logDebug(`Presenter Peer opened. Studio ID: ${id}`);
                 document.getElementById('room-id').innerText = id;
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
                 
                 const qrContainer = document.getElementById("qrcode");
                 qrContainer.innerHTML = "";
-                
                 new QRCode(qrContainer, {
-                    text: joinUrl, 
-                    width: 128, 
-                    height: 128,
-                    colorDark: "#2C302E", 
-                    colorLight: "#F5F3EF",
-                    correctLevel: QRCode.CorrectLevel.M
+                    text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF", correctLevel: QRCode.CorrectLevel.M
                 });
             });
 
             peer.on('connection', (conn) => {
-                // 當新連接建立時，先清理可能存在的舊連線
+                logDebug(`Viewer initiating connection: ${conn.peer}`);
                 cleanupViewer(conn.peer);
 
                 const handleConnectionOpen = () => {
+                    logDebug(`Viewer Data connection open: ${conn.peer}`);
                     connectedViewers.set(conn.peer, { data: conn });
                     updateViewerCount();
                 };
 
-                if (conn.open) {
-                    handleConnectionOpen();
-                } else {
-                    conn.on('open', handleConnectionOpen);
-                }
+                if (conn.open) handleConnectionOpen(); else conn.on('open', handleConnectionOpen);
 
                 conn.on('data', (data) => {
-                    // 只在收到 Ready 且尚未建立媒體連線時發起呼叫
+                    logDebug(`Data from ${conn.peer}: ${JSON.stringify(data)}`);
                     if (data.type === 'VIEWER_READY' && localStream) {
+                        logDebug(`Viewer ${conn.peer} is ready. Sending screen stream...`);
                         callViewer(conn.peer);
                     }
                 });
 
-                conn.on('close', () => {
-                    cleanupViewer(conn.peer);
-                });
-
-                conn.on('error', () => {
-                    cleanupViewer(conn.peer);
-                });
+                conn.on('close', () => { logDebug(`Viewer closed connection: ${conn.peer}`); cleanupViewer(conn.peer); });
+                conn.on('error', (err) => { logDebug(`Data channel error with ${conn.peer}: ${err.message}`, true); cleanupViewer(conn.peer); });
             });
 
             peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    setupPresenter();
-                } else {
-                    console.error("Presenter PeerJS error:", err);
-                }
+                logDebug(`Presenter PeerJS Error [${err.type}]: ${err.message}`, true);
+                if (err.type === 'unavailable-id') setupPresenter();
             });
         }
 
         function cleanupViewer(peerId) {
             if (connectedViewers.has(peerId)) {
-                const viewer = connectedViewers.get(peerId);
-                try { viewer.data.close(); } catch(e){}
+                try { connectedViewers.get(peerId).data.close(); } catch(e){}
                 connectedViewers.delete(peerId);
             }
             if (activeCalls.has(peerId)) {
-                const call = activeCalls.get(peerId);
-                try { call.close(); } catch(e){}
+                try { activeCalls.get(peerId).close(); } catch(e){}
                 activeCalls.delete(peerId);
             }
             updateViewerCount();
@@ -378,38 +411,39 @@
 
         function callViewer(peerId) {
             if (!localStream) return;
-            
-            // 避免對同一個觀眾重複呼叫導致 WebRTC SDP 衝突
             if (activeCalls.has(peerId)) {
-                return;
+                logDebug(`Skipped. Already calling viewer: ${peerId}`); return;
             }
 
-            const call = peer.call(peerId, localStream);
-            if (call) {
-                activeCalls.set(peerId, call);
-                
-                call.on('close', () => {
-                    activeCalls.delete(peerId);
-                });
-                
-                call.on('error', (err) => {
-                    console.error("Media call error:", err);
-                    activeCalls.delete(peerId);
-                });
+            try {
+                logDebug(`Initiating media stream to viewer: ${peerId}`);
+                const call = peer.call(peerId, localStream);
+                if (call) {
+                    activeCalls.set(peerId, call);
+                    
+                    if (call.peerConnection) {
+                        call.peerConnection.addEventListener('connectionstatechange', () => {
+                            logDebug(`[${peerId}] WebRTC State: ${call.peerConnection.connectionState}`);
+                        });
+                    }
+                    
+                    call.on('close', () => { activeCalls.delete(peerId); logDebug(`Call ended for ${peerId}`); });
+                    call.on('error', (err) => { logDebug(`Media call error [${peerId}]: ${err.message}`, true); activeCalls.delete(peerId); });
+                }
+            } catch (err) {
+                logDebug(`Failed to call ${peerId}: ${err.message}`, true);
             }
         }
 
         async function startScreenShare() {
             try {
+                logDebug("Requesting Display Media (Screen)...");
                 localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { 
-                        width: { ideal: 1920, max: 2560 },
-                        height: { ideal: 1080, max: 1440 },
-                        frameRate: { ideal: 30, max: 60 }
-                    }, 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
                     audio: false 
                 });
                 
+                logDebug("Screen Media Acquired Successfully!");
                 const localVideo = document.getElementById('local-video');
                 localVideo.srcObject = localStream;
                 document.querySelector('.preview-placeholder').style.display = 'none';
@@ -419,33 +453,26 @@
                 btnShare.style.background = "#6B7A75"; 
                 
                 localStream.getVideoTracks()[0].onended = () => {
+                    logDebug("Screen Sharing Stopped by Presenter.");
                     btnShare.innerText = "Start Screen Share";
                     btnShare.style.background = "var(--morandi-primary)";
                     localVideo.srcObject = null;
                     document.querySelector('.preview-placeholder').style.display = 'block';
                     
-                    // 通知所有觀眾
-                    connectedViewers.forEach(viewer => {
-                        try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){}
-                    });
-
-                    // 釋放舊連線
-                    activeCalls.forEach(call => {
-                        try { call.close(); } catch(e){}
-                    });
+                    connectedViewers.forEach(viewer => { try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){} });
+                    activeCalls.forEach(call => { try { call.close(); } catch(e){} });
                     activeCalls.clear();
                     localStream = null;
                 };
 
-                // 開始分享後，通知目前已連線的所有觀眾
                 connectedViewers.forEach((viewer, peerId) => {
                     try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                     callViewer(peerId);
                 });
 
             } catch (err) {
-                console.error(err);
-                alert("無法存取螢幕，請確認瀏覽器權限或是否處於安全 HTTPS 環境下。");
+                logDebug(`Screen Share Failed [${err.name}]: ${err.message}`, true);
+                alert("無法存取螢幕，請確認瀏覽器支援度，且講者端不應使用手機/平板發起螢幕分享。\n詳細錯誤請見 Debug 面板。");
             }
         }
 
@@ -461,88 +488,101 @@
             const hostId = document.getElementById('join-id').value.trim().toUpperCase();
             if (!hostId) return;
 
+            logDebug(`Viewer connecting to Host ID: ${hostId}`);
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
             loadingMsg.innerText = "Initializing connection...";
 
-            if (peer) {
-                try { peer.destroy(); } catch(e){}
-            }
-
-            // 使用 undefined 確保 PeerJS 使用配置的 STUN 進行 NAT 穿透
+            if (peer) { try { peer.destroy(); } catch(e){} }
             peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
+                logDebug(`Incoming stream call from Host: ${call.peer}`);
                 call.answer(); 
                 
+                if (call.peerConnection) {
+                    call.peerConnection.addEventListener('connectionstatechange', () => {
+                        logDebug(`Viewer WebRTC State: ${call.peerConnection.connectionState}`);
+                    });
+                    call.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                        logDebug(`Viewer ICE State: ${call.peerConnection.iceConnectionState}`);
+                    });
+                }
+                
                 call.on('stream', (remoteStream) => {
+                    logDebug("Remote stream track received!");
                     document.getElementById('player-loading').style.display = 'none';
                     
                     const videoEl = document.getElementById('remote-video');
-                    videoEl.srcObject = remoteStream;
                     
-                    videoEl.onloadedmetadata = () => {
-                        videoEl.play().catch(e => {
-                            console.warn("Autoplay blocked. Requiring user action.");
+                    if (videoEl.srcObject !== remoteStream) {
+                        videoEl.srcObject = remoteStream;
+                    }
+                    
+                    videoEl.onloadedmetadata = () => { logDebug("Stream metadata loaded."); };
+                    videoEl.onresize = () => { logDebug(`Video Frame Size: ${videoEl.videoWidth}x${videoEl.videoHeight}`); };
+
+                    // 針對 iOS Safari 必須強迫手動啟動播放，否則畫面會停滯
+                    logDebug("Attempting hardware playback (videoEl.play())...");
+                    const playPromise = videoEl.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            logDebug("Video playback started successfully.");
+                            document.getElementById('manual-play-btn').style.display = 'none';
+                        }).catch(e => {
+                            logDebug(`Browser Blocked Autoplay: ${e.name} - ${e.message}`, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
-                    };
+                    }
                 });
 
-                call.on('close', () => {
-                    alert('Session stream closed.');
-                    location.reload();
-                });
+                call.on('close', () => { logDebug('Host ended the media stream.', true); });
+                call.on('error', (err) => { logDebug(`Media stream error: ${err.message}`, true); });
             });
 
             peer.on('open', (viewerId) => {
+                logDebug(`Viewer Peer Ready. My ID: ${viewerId}`);
                 loadingMsg.innerText = `Connecting to Studio: ${hostId}...`;
                 
                 const conn = peer.connect(hostId, { reliable: true });
                 
+                if (conn.peerConnection) {
+                    conn.peerConnection.addEventListener('connectionstatechange', () => {
+                        logDebug(`Data Channel WebRTC State: ${conn.peerConnection.connectionState}`);
+                    });
+                }
+
                 const handleConnOpen = () => {
+                    logDebug("Data Connection established. Waiting for screen share.");
                     loadingMsg.innerText = "Connected! Waiting for host to share screen...";
                     conn.send({ type: 'VIEWER_READY' });
                 };
 
-                if (conn.open) {
-                    handleConnOpen();
-                } else {
-                    conn.on('open', handleConnOpen);
-                }
+                if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
 
                 conn.on('data', (data) => {
-                    if (data.type === 'STOP_SHARE') {
-                        alert('Presenter stopped sharing.');
-                        location.reload();
-                    }
+                    logDebug(`Host Event: ${data.type}`);
+                    if (data.type === 'STOP_SHARE') { logDebug('Host stopped sharing screen.', true); }
                 });
 
-                conn.on('close', () => { 
-                    alert('Host ended the session.'); 
-                    location.reload(); 
-                });
-
-                conn.on('error', (err) => {
-                    console.error("Data channel error:", err);
-                    alert('Connection lost.');
-                    location.reload();
-                });
+                conn.on('close', () => { logDebug('Host disconnected the session.', true); });
+                conn.on('error', (err) => { logDebug(`Data connection error: ${err.message}`, true); });
             });
 
             peer.on('error', (err) => {
-                console.error("Peer connection error:", err);
-                alert("Cannot find host. Please check the Access Code, internet connection, or security settings.");
-                location.reload();
+                logDebug(`PeerJS Global Error [${err.type}]: ${err.message}`, true);
+                // 不自動重整，讓開發者與使用者能從畫面上閱讀錯誤發生原因。
             });
         }
 
         function forcePlay() {
+            logDebug("User forced video playback.");
             const videoEl = document.getElementById('remote-video');
             videoEl.play().then(() => {
+                logDebug("Force playback successful!");
                 document.getElementById('manual-play-btn').style.display = 'none';
             }).catch(e => {
-                console.error("Force play failed:", e);
+                logDebug(`Force playback failed: ${e.name} - ${e.message}`, true);
             });
         }
     </script>
