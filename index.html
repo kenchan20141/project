@@ -10,15 +10,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
+        /* --- 淺色商務簡約風 (Light Business Theme) --- */
         :root {
-            --bg: #09090b;
-            --surface: #18181b;
-            --border: #27272a;
-            --text-main: #fafafa;
-            --text-muted: #a1a1aa;
-            --accent: #ffffff;
-            --accent-fg: #000000;
-            --danger: #ef4444;
+            --bg: #F9FAFB;           /* 極淺灰背景 */
+            --surface: #FFFFFF;      /* 純白卡片 */
+            --border: #E5E7EB;       /* 邊框 */
+            --text-main: #111827;    /* 深灰黑主文字 */
+            --text-muted: #6B7280;   /* 次要文字 */
+            --primary: #2563EB;      /* 專業藍色 */
+            --primary-hover: #1D4ED8;
+            --success: #10B981;      /* 成功綠色 */
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -36,108 +37,118 @@
         .container {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 24px;
+            border-radius: 16px;
             padding: 40px;
             width: 100%;
-            max-width: 420px;
+            max-width: 400px;
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            transition: opacity 0.4s ease, transform 0.4s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            transition: opacity 0.3s ease;
         }
 
         .hidden { display: none !important; opacity: 0; pointer-events: none; }
         
-        h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 8px; }
+        h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 8px; color: var(--text-main); }
         p.subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
 
         button {
             width: 100%; padding: 14px; margin-bottom: 12px;
-            font-size: 15px; font-weight: 500; border-radius: 12px;
-            border: 1px solid var(--border); background: transparent; color: var(--text-main);
+            font-size: 15px; font-weight: 500; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-main);
             cursor: pointer; transition: all 0.2s ease;
         }
-        button:hover { background: rgba(255,255,255,0.05); }
-        button.primary { background: var(--accent); color: var(--accent-fg); border: none; font-weight: 600; }
-        button.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.2); }
-        button.danger { background: var(--danger); color: white; border: none; }
+        button:hover { background: #F3F4F6; }
+        button.primary { background: var(--primary); color: #FFFFFF; border: none; font-weight: 600; }
+        button.primary:hover { background: var(--primary-hover); box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
 
         input {
-            width: 100%; padding: 16px; margin-bottom: 20px;
-            background: #000; border: 1px solid var(--border);
-            border-radius: 12px; color: white; font-size: 18px;
+            width: 100%; padding: 16px; margin-bottom: 24px;
+            background: #F9FAFB; border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text-main); font-size: 18px;
             text-align: center; outline: none; transition: border 0.2s;
         }
-        input:focus { border-color: var(--text-muted); }
+        input:focus { border-color: var(--primary); background: #FFFFFF; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
 
         /* 講者儀表板專用 */
         .room-code-box {
-            background: #000; border-radius: 16px; padding: 20px;
-            margin-bottom: 24px; border: 1px solid var(--border);
+            background: #F9FAFB; border-radius: 12px; padding: 24px;
+            margin-bottom: 24px; border: 1px dashed #D1D5DB;
         }
-        .code-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .code-display { font-size: 32px; font-weight: 700; letter-spacing: 4px; }
-        #qrcode { display: flex; justify-content: center; margin: 20px 0; padding: 10px; background: white; border-radius: 12px; width: fit-content; margin-left: auto; margin-right: auto; }
-        .status-dot { display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 6px; }
+        .code-title { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+        .code-display { font-size: 36px; font-weight: 700; letter-spacing: 6px; color: var(--primary); }
+        #qrcode { display: flex; justify-content: center; margin-top: 20px; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; background: var(--success); border-radius: 50%; margin-right: 6px; }
 
-        /* 觀眾播放區 (全視窗，取代舊版強制全螢幕 API 避免被擋) */
+        /* 觀眾播放區 (全視窗黑色背景，凸顯畫面) */
         #viewer-player {
-            position: fixed; inset: 0; background: #000; z-index: 999;
+            position: fixed; inset: 0; background: #000000; z-index: 999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         #remote-video { width: 100%; height: 100%; object-fit: contain; }
         
-        .loading-text { font-size: 14px; color: var(--text-muted); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        .loading-box { text-align: center; color: #FFFFFF; }
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #FFFFFF; border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 16px auto;
+        }
+        .loading-text { font-size: 15px; opacity: 0.9; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
     <!-- 1. 歡迎介面 -->
     <div id="view-home" class="container">
-        <h1>SyncCast</h1>
-        <p class="subtitle">專業無線投影系統</p>
+        <h1>SyncCast 無線投影</h1>
+        <p class="subtitle">選擇您的角色以開始</p>
         <button class="primary" onclick="initRole('presenter')">發起投影 (講者)</button>
         <button onclick="initRole('viewer')">加入投影 (觀眾)</button>
     </div>
 
     <!-- 2. 講者介面 -->
     <div id="view-presenter" class="container hidden">
-        <h1>控制台</h1>
-        <p class="subtitle"><span class="status-dot"></span>已連線觀眾: <span id="viewer-count">0</span></p>
+        <h1>投影控制台</h1>
+        <p class="subtitle"><span class="status-dot"></span>已連線觀眾: <span id="viewer-count">0</span> 人</p>
         
         <div class="room-code-box">
-            <div class="code-title">連線代碼</div>
+            <div class="code-title">請觀眾輸入代碼或掃描</div>
             <div id="room-id" class="code-display">...</div>
             <div id="qrcode"></div>
         </div>
 
-        <button id="btn-share" class="primary" onclick="startScreenShare()">分享畫面</button>
+        <button id="btn-share" class="primary" onclick="startScreenShare()">開始分享畫面</button>
     </div>
 
     <!-- 3. 觀眾輸入介面 -->
     <div id="view-viewer" class="container hidden">
         <h1>加入投影</h1>
-        <p class="subtitle" id="viewer-subtitle">請輸入講者畫面上的代碼</p>
-        <input type="text" id="join-id" placeholder="例如: 8A9X" autocomplete="off">
+        <p class="subtitle" id="viewer-subtitle">輸入講者畫面上的 4 碼代碼</p>
+        <input type="text" id="join-id" placeholder="例如: 8A9X" autocomplete="off" maxlength="4">
         <button class="primary" onclick="joinSession()">連線</button>
-        <button onclick="location.href=location.pathname">返回</button>
+        <button onclick="location.reload()">返回</button>
     </div>
 
-    <!-- 4. 觀眾播放介面 (全螢幕) -->
+    <!-- 4. 觀眾播放介面 -->
     <div id="viewer-player" class="hidden">
-        <div id="player-loading" class="loading-text">連線中，等待講者分享畫面...</div>
-        <!-- 加上 autoplay playsinline 確保手機端能網頁內聯播 -->
+        <div id="player-loading" class="loading-box">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loading-msg">正在連線...</div>
+        </div>
         <video id="remote-video" autoplay playsinline muted></video>
     </div>
 
     <script>
-        // Google 免費穩定的 STUN 伺服器，提升連線成功率
-        const peerConfig = { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } };
+        // 加入備用 STUN Server 確保各種網路環境都能穿透
+        const peerConfig = { config: { 'iceServers': [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]}};
         let peer = null;
         let localStream = null;
-        let activeConnections = []; // 儲存已連線的觀眾 ID
+        let viewers = new Set(); // 使用 Set 確保觀眾 ID 不重複
 
-        // 啟動時檢查是否來自 QR Code 的 URL
+        // 偵測是否透過 QR Code 掃描進入
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const roomParam = urlParams.get('room');
@@ -145,11 +156,10 @@
                 document.getElementById('join-id').value = roomParam;
                 document.getElementById('view-home').classList.add('hidden');
                 document.getElementById('view-viewer').classList.remove('hidden');
-                document.getElementById('viewer-subtitle').innerText = "已掃描代碼，請點擊連線";
+                document.getElementById('viewer-subtitle').innerText = "已讀取代碼，點擊連線即可加入";
             }
         };
 
-        // UI 視圖切換
         function switchView(viewId) {
             document.querySelectorAll('.container, #viewer-player').forEach(el => el.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
@@ -166,68 +176,73 @@
 
         /* ================= 講者端邏輯 ================= */
         function setupPresenter() {
-            peer = new Peer(generateShortID(), peerConfig); 
+            const roomId = generateShortID();
+            peer = new Peer(roomId, peerConfig); 
             
             peer.on('open', (id) => {
                 document.getElementById('room-id').innerText = id;
-                // 產生供觀眾掃描的網址與 QR Code
+                
+                // 產生 QR Code
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
+                document.getElementById("qrcode").innerHTML = ""; // 清空舊圖
                 new QRCode(document.getElementById("qrcode"), {
-                    text: joinUrl, width: 140, height: 140,
-                    colorDark: "#000000", colorLight: "#ffffff",
+                    text: joinUrl, width: 130, height: 130,
+                    colorDark: "#111827", colorLight: "#F9FAFB",
                     correctLevel: QRCode.CorrectLevel.L
                 });
             });
 
-            // 監聽觀眾連線
+            // 監聽觀眾建立資料連線
             peer.on('connection', (conn) => {
-                conn.on('open', () => {
-                    if (!activeConnections.includes(conn.peer)) activeConnections.push(conn.peer);
-                    updateViewerCount();
-
-                    // 【核心修復】如果講者已經在分享畫面，有新觀眾進來時，主動發起視訊流
-                    if (localStream) {
-                        peer.call(conn.peer, localStream);
+                conn.on('data', (data) => {
+                    // 【核心修復】雙向握手：當觀眾說「我準備好了」，才發送畫面
+                    if (data.type === 'VIEWER_READY') {
+                        viewers.add(conn.peer);
+                        updateViewerCount();
+                        
+                        if (localStream) {
+                            peer.call(conn.peer, localStream);
+                        }
                     }
                 });
 
                 conn.on('close', () => {
-                    activeConnections = activeConnections.filter(id => id !== conn.peer);
+                    viewers.delete(conn.peer);
                     updateViewerCount();
                 });
             });
         }
 
         function updateViewerCount() {
-            document.getElementById('viewer-count').innerText = activeConnections.length;
+            document.getElementById('viewer-count').innerText = viewers.size;
         }
 
         async function startScreenShare() {
             try {
-                // 請求分享視窗
                 localStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" }, audio: false });
                 
                 const btnShare = document.getElementById('btn-share');
-                btnShare.innerText = "停止分享";
-                btnShare.classList.remove('primary');
-                btnShare.classList.add('danger');
-                btnShare.onclick = () => location.reload();
+                btnShare.innerText = "重新選擇分享畫面";
+                btnShare.style.background = "#10B981"; // 變成綠色提示已在分享
+                
+                // 講者停止分享時的還原動作
+                localStream.getVideoTracks()[0].onended = () => {
+                    btnShare.innerText = "開始分享畫面";
+                    btnShare.style.background = "";
+                    localStream = null;
+                };
 
-                // 當講者關閉瀏覽器自帶的「停止分享」按鈕
-                localStream.getVideoTracks()[0].onended = () => location.reload();
-
-                // 【核心修復】講者開始分享時，遍歷所有已連線的觀眾，主動把畫面塞給他們
-                activeConnections.forEach(viewerId => {
+                // 推播畫面給所有「已經準備好」的觀眾
+                viewers.forEach(viewerId => {
                     peer.call(viewerId, localStream);
                 });
 
             } catch (err) {
                 console.error(err);
-                alert("無法擷取畫面，請確認已授予權限。");
+                alert("無法擷取畫面，請確認您已允許瀏覽器的螢幕分享權限。");
             }
         }
 
-        // 產生 4 碼易讀的連線代碼 (濾除 O, 0, I, 1 等易混淆字)
         function generateShortID() {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let id = '';
@@ -241,31 +256,43 @@
             if (!hostId) return;
 
             switchView('viewer-player');
+            const loadingMsg = document.getElementById('loading-msg');
+            loadingMsg.innerText = "正在尋找講者...";
+
             peer = new Peer(peerConfig);
 
             peer.on('open', () => {
-                // 建立基礎資料連線 (讓講者知道我們進來了)
-                const conn = peer.connect(hostId);
+                // 建立基礎連線，告知講者準備接收畫面
+                const conn = peer.connect(hostId, { reliable: true });
+                
+                conn.on('open', () => {
+                    loadingMsg.innerText = "已連線！等待講者開始分享畫面...";
+                    conn.send({ type: 'VIEWER_READY' });
+                });
+
                 conn.on('close', () => { alert('講者已結束投影'); location.reload(); });
             });
 
-            // 準備接聽講者主動傳來的視訊流
+            // 接收來自講者的影像流
             peer.on('call', (call) => {
-                call.answer(); // 自動接聽
+                call.answer(); // 接聽 (不需要回傳自己的畫面)
+                
                 call.on('stream', (remoteStream) => {
-                    // 收到畫面，隱藏等待文字，播放影片
                     document.getElementById('player-loading').style.display = 'none';
+                    
                     const videoEl = document.getElementById('remote-video');
                     videoEl.srcObject = remoteStream;
                     
-                    // 針對部分手機瀏覽器需手動觸發播放
-                    videoEl.play().catch(e => console.log("等待使用者互動以播放"));
+                    // 【核心修復】確保影像數據載入後，強制呼叫 play()，解決手機端卡頓
+                    videoEl.onloadedmetadata = () => {
+                        videoEl.play().catch(e => console.log("等待使用者互動以播放"));
+                    };
                 });
             });
 
             peer.on('error', (err) => {
-                alert("連線失敗，請確認代碼是否正確或講者是否已開啟。");
-                location.href = location.pathname;
+                alert("連線失敗，請確認代碼是否正確。");
+                location.reload();
             });
         }
     </script>
