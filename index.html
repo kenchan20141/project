@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SyncCast | Editorial Screen Sharing</title>
     
-    <!-- 引入字體：Playfair Display (襯線體/雜誌感) 與 Inter (現代無襯線) -->
+    <!-- 引入字體：Playfair Display (襯線體) 與 Inter (現代無襯線) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     
     <!-- 引入 PeerJS 與 QRCode 庫 -->
@@ -19,7 +19,7 @@
             --morandi-surface: #F5F3EF;  /* 暖白卡片 */
             --morandi-primary: #7A8485;  /* 鼠尾草灰綠 (主色) */
             --morandi-primary-hover: #606A6B;
-            --morandi-text: #2C302E;     /* 炭灰色文字 (取代純黑) */
+            --morandi-text: #2C302E;     /* 炭灰色文字 */
             --morandi-muted: #8E8A85;    /* 輔助文字 */
             --morandi-border: #D1CEC5;   /* 優雅細線 */
             
@@ -37,12 +37,12 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            padding: 24px 16px; /* 預留邊距，防止行動端貼邊 */
+            padding: 24px 16px; 
             box-sizing: border-box;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* 裝飾性背景線條 (雜誌排版感) */
+        /* 裝飾性背景文字 */
         body::before {
             content: "VOL. 1";
             position: absolute;
@@ -77,7 +77,6 @@
             transform: translateY(10px);
         }
         
-        /* 雜誌風標題排版 */
         h1 { 
             font-family: var(--font-serif); 
             font-size: 32px; 
@@ -101,7 +100,6 @@
             background: var(--morandi-border); margin: 16px auto 0;
         }
 
-        /* 優雅的按鈕設計 */
         button {
             width: 100%; padding: 16px; margin-bottom: 16px;
             font-size: 14px; font-weight: 400; letter-spacing: 1px;
@@ -123,7 +121,6 @@
             transform: translateY(-1px);
         }
 
-        /* 簡約輸入框 */
         input {
             width: 100%; padding: 16px 0; margin-bottom: 32px;
             background: transparent; border: none;
@@ -136,28 +133,33 @@
         input::placeholder { color: #D1CEC5; font-family: var(--font-sans); font-size: 14px; letter-spacing: 2px; }
         input:focus { border-bottom-color: var(--morandi-primary); }
 
-        /* 講者儀表板 */
-        .dashboard-grid { text-align: left; margin-bottom: 32px; }
         .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
         .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; text-align: center; }
         
-        /* 本地預覽畫面 (像雜誌插圖般的邊框) */
         .preview-wrapper {
             width: 100%; aspect-ratio: 16/9; background: #E5E2DA;
             border: 1px solid var(--morandi-border);
             margin-bottom: 24px; position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         }
-        #local-video { width: 100%; height: 100%; object-fit: cover; }
+        
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            /* 改善畫質：防止瀏覽器縮放時過度模糊 */
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
         .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
 
-        /* 響應式 QR Code 樣式修正 */
+        /* 響應式 QR Code 容器 */
         #qrcode { 
             display: flex; 
             justify-content: center; 
             margin: 24px auto 0; 
             width: 100%;
-            max-width: 140px; /* 限制寬度避免在寬螢幕過度放大 */
+            max-width: 140px; 
         }
         #qrcode img, #qrcode canvas { 
             width: 100% !important;
@@ -179,9 +181,8 @@
         #remote-video { width: 100%; height: 100%; object-fit: contain; }
         
         .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; }
-        .loading-text { font-size: 18px; letter-spacing: 1px; margin-bottom: 16px;}
+        .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
         
-        /* 用於解決 iOS 自動播放限制的手動播放按鈕 */
         #manual-play-btn {
             position: absolute; z-index: 1000;
             padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
@@ -208,7 +209,6 @@
         <div class="info-label text-center">Room Access Code</div>
         <div id="room-id" class="code-display">...</div>
         
-        <!-- 本地預覽畫面 -->
         <div class="preview-wrapper">
             <span class="preview-placeholder">Live Preview</span>
             <video id="local-video" autoplay playsinline muted></video>
@@ -241,12 +241,20 @@
     </div>
 
     <script>
-        // STUN 伺服器
-        const peerConfig = { config: { 'iceServers': [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-        ]}};
+        // 增加多個全球穩定的公共 STUN 伺服器，確保跨設備 NAT 穿透成功
+        const peerConfig = { 
+            config: { 
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' }
+                ],
+                'iceCandidatePoolSize': 10
+            }
+        };
         
         let peer = null;
         let localStream = null;
@@ -291,7 +299,6 @@
                 document.getElementById('room-id').innerText = id;
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
                 
-                // 清空舊的 QR Code 避免重複疊加
                 const qrContainer = document.getElementById("qrcode");
                 qrContainer.innerHTML = "";
                 
@@ -305,10 +312,8 @@
                 });
             });
 
-            // 監聽觀眾建立連線
             peer.on('connection', (conn) => {
                 const handleConnectionOpen = () => {
-                    // 避免重複加入
                     if (connectedViewers.has(conn.peer)) {
                         const oldConn = connectedViewers.get(conn.peer);
                         try { oldConn.data.close(); } catch(e){}
@@ -317,20 +322,17 @@
                     connectedViewers.set(conn.peer, { data: conn, call: null });
                     updateViewerCount();
 
-                    // 若講者已經啟動畫面分享，則直接呼叫該觀眾
                     if (localStream) {
                         callViewer(conn.peer);
                     }
                 };
 
-                // 若連線已經開啟，則直接處理，否則等待 open 事件
                 if (conn.open) {
                     handleConnectionOpen();
                 } else {
                     conn.on('open', handleConnectionOpen);
                 }
 
-                // 接收觀眾訊號
                 conn.on('data', (data) => {
                     if (data.type === 'VIEWER_READY' && localStream) {
                         callViewer(conn.peer);
@@ -348,12 +350,11 @@
                 });
             });
 
-            // 錯誤處理：若產生的 ID 已被佔用，重新呼叫設定
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
                     setupPresenter();
                 } else {
-                    console.error("PeerJS error:", err);
+                    console.error("Presenter PeerJS error:", err);
                 }
             });
         }
@@ -362,7 +363,6 @@
             document.getElementById('viewer-count').innerText = connectedViewers.size;
         }
 
-        // 獨立出撥打媒體流的邏輯
         function callViewer(peerId) {
             if (!localStream) return;
             const call = peer.call(peerId, localStream);
@@ -374,7 +374,15 @@
 
         async function startScreenShare() {
             try {
-                localStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" }, audio: false });
+                // 強制提高螢幕共享解析度與品質參數，防止畫面模糊
+                localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { 
+                        width: { ideal: 1920, max: 2560 },
+                        height: { ideal: 1080, max: 1440 },
+                        frameRate: { ideal: 30, max: 60 }
+                    }, 
+                    audio: false 
+                });
                 
                 const localVideo = document.getElementById('local-video');
                 localVideo.srcObject = localStream;
@@ -392,7 +400,6 @@
                     localStream = null;
                 };
 
-                // 當講者開始分享，撥打給所有已連線觀眾
                 connectedViewers.forEach((viewerInfo, peerId) => {
                     callViewer(peerId);
                 });
@@ -417,17 +424,18 @@
 
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
-            loadingMsg.innerText = "Searching for Studio...";
+            loadingMsg.innerText = "Initializing connection...";
 
             if (peer) {
                 try { peer.destroy(); } catch(e){}
             }
 
-            peer = new Peer(peerConfig);
+            // 【核心修正】明確傳入第一個參數為 undefined，第二個參數為 options 
+            // 如此 PeerJS 才會正確載入含有 STUN 的 peerConfig 設定，實現跨網段連線
+            peer = new Peer(undefined, peerConfig);
 
-            // 優先註冊撥入通話 (媒體流) 的處理器
             peer.on('call', (call) => {
-                call.answer(); // 觀眾端直接答覆接收
+                call.answer(); 
                 
                 call.on('stream', (remoteStream) => {
                     document.getElementById('player-loading').style.display = 'none';
@@ -437,7 +445,7 @@
                     
                     videoEl.onloadedmetadata = () => {
                         videoEl.play().catch(e => {
-                            console.warn("Autoplay blocked by browser policy. Requiring manual activation.");
+                            console.warn("Autoplay blocked. Requiring user action.");
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
                     };
@@ -450,13 +458,12 @@
             });
 
             peer.on('open', (viewerId) => {
-                loadingMsg.innerText = `Connecting to Studio ${hostId}...`;
+                loadingMsg.innerText = `Connecting to Studio: ${hostId}...`;
                 
-                // 建立與講者的資料通道
                 const conn = peer.connect(hostId, { reliable: true });
                 
                 const handleConnOpen = () => {
-                    loadingMsg.innerText = "Connected. Waiting for host to share screen...";
+                    loadingMsg.innerText = "Connected! Waiting for host to share screen...";
                     conn.send({ type: 'VIEWER_READY' });
                 };
 
@@ -472,15 +479,15 @@
                 });
 
                 conn.on('error', (err) => {
-                    console.error("Connection data channel error:", err);
+                    console.error("Data channel error:", err);
                     alert('Connection lost.');
                     location.reload();
                 });
             });
 
             peer.on('error', (err) => {
-                console.error("Peer client error:", err);
-                alert("Connection failed. Please verify the Access Code.");
+                console.error("Peer connection error:", err);
+                alert("Cannot find host. Please check the Access Code or network.");
                 location.reload();
             });
         }
