@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncCast - 實時視窗同步投影</title>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            text-align: center;
+            max-width: 550px;
+            width: 90%;
+        }
+        h1 { margin-top: 0; color: var(--primary); }
+        button {
+            background: var(--primary); color: white;
+            border: none; padding: 14px 28px;
+            font-size: 16px; border-radius: 8px;
+            cursor: pointer; margin: 10px;
+            transition: 0.3s; font-weight: bold;
+        }
+        button:hover { background: var(--primary-hover); }
+        button.share-btn { background: var(--success); }
+        button.share-btn:hover { background: #059669; }
+        
+        input[type="text"] {
+            padding: 14px; font-size: 18px; border-radius: 8px;
+            border: 2px solid #334155; background: #0f172a; color: white;
+            width: 80%; margin-bottom: 20px; text-align: center;
+        }
+        .hidden { display: none !important; }
+        
+        /* 講者預覽區 */
+        #presenter-workspace { margin-top: 20px; }
+        #local-video { width: 100%; border-radius: 8px; border: 2px solid #334155; background: #000; }
+        
+        /* 觀眾全螢幕播放區 */
+        #viewer-fullscreen {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh; background: #000;
+            z-index: 9999; justify-content: center; align-items: center;
+        }
+        #remote-video { max-width: 100%; max-height: 100%; width: 100vw; height: 100vh; object-fit: contain; }
+        
+        #status { margin-top: 15px; font-size: 15px; color: #94a3b8; }
+        .room-id-display { font-size: 28px; font-weight: bold; color: var(--success); letter-spacing: 2px; user-select: all; padding: 10px; background: #0f172a; border-radius: 8px; display: inline-block; margin-top: 10px;}
+    </style>
+</head>
+<body>
+
+    <!-- 主選單 -->
+    <div id="main-menu" class="container">
+        <h1>SyncCast 實時投影系統</h1>
+        <p>無需轉檔，直接擷取 PPT / PDF 視窗畫面</p>
+        <button onclick="selectRole('presenter')">👨‍🏫 我是講者 (投影端)</button>
+        <button onclick="selectRole('viewer')">👁️ 我是觀眾 (觀看端)</button>
+    </div>
+
+    <!-- 講者介面 -->
+    <div id="presenter-ui" class="container hidden">
+        <h2>講者控制台</h2>
+        <button class="share-btn" onclick="startScreenShare()">📺 1. 開始分享視窗 (選擇你的PPT/PDF)</button>
+        
+        <div id="share-info" class="hidden">
+            <p>請將以下連線代碼交給觀眾：</p>
+            <div id="room-id" class="room-id-display">產生中...</div>
+            <p id="client-count" style="color: var(--success); margin-top: 15px;">已連線觀眾: 0 人</p>
+        </div>
+
+        <div id="presenter-workspace" class="hidden">
+            <p style="font-size: 14px; color: #94a3b8;">你的分享預覽：</p>
+            <video id="local-video" autoplay playsinline muted></video>
+        </div>
+    </div>
+
+    <!-- 觀眾介面 -->
+    <div id="viewer-ui" class="container hidden">
+        <h2>進入播放室</h2>
+        <input type="text" id="join-id" placeholder="請輸入講者的連線代碼" autocomplete="off">
+        <br>
+        <button onclick="joinRoom()">🔗 連線並全螢幕觀看</button>
+        <div id="status"></div>
+    </div>
+
+    <!-- 觀眾全螢幕播放區 -->
+    <div id="viewer-fullscreen">
+        <!-- playsinline 確保手機端不會彈出原生播放器，而是網頁內渲染 -->
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <script>
+        let peer = null;
+        let localStream = null;
+        let connections = []; // 儲存已連線的觀眾 ID
+
+        // 切換介面
+        function selectRole(role) {
+            document.getElementById('main-menu').classList.add('hidden');
+            if (role === 'presenter') {
+                document.getElementById('presenter-ui').classList.remove('hidden');
+                initPresenter();
+            } else {
+                document.getElementById('viewer-ui').classList.remove('hidden');
+                initViewer();
+            }
+        }
+
+        /* ================= 講者端邏輯 ================= */
+        function initPresenter() {
+            peer = new Peer(); 
+            peer.on('open', (id) => {
+                document.getElementById('room-id').innerText = id;
+            });
+
+            // 當觀眾加入時的處理
+            peer.on('connection', (conn) => {
+                connections.push(conn.peer);
+                updateClientCount();
+                
+                // 收到觀眾的 "我準備好了" 訊息後，主動撥打視訊電話給觀眾
+                conn.on('data', (data) => {
+                    if (data.type === 'viewer_ready' && localStream) {
+                        peer.call(conn.peer, localStream);
+                    }
+                });
+
+                conn.on('close', () => {
+                    connections = connections.filter(id => id !== conn.peer);
+                    updateClientCount();
+                });
+            });
+        }
+
+        function updateClientCount() {
+            document.getElementById('client-count').innerText = `已連線觀眾: ${connections.length} 人`;
+        }
+
+        // 呼叫瀏覽器原生 API 擷取視窗
+        async function startScreenShare() {
+            try {
+                // 請求螢幕/視窗權限 (只需影像，不需麥克風)
+                localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { cursor: "always" }, 
+                    audio: false 
+                });
+
+                // 顯示預覽畫面
+                document.getElementById('local-video').srcObject = localStream;
+                document.getElementById('presenter-workspace').classList.remove('hidden');
+                document.getElementById('share-info').classList.remove('hidden');
+
+                // 如果已經有觀眾連線，重新發送串流給所有人
+                connections.forEach(viewerId => {
+                    peer.call(viewerId, localStream);
+                });
+
+                // 當講者手動停止分享時的處理
+                localStream.getVideoTracks()[0].onended = () => {
+                    alert("已停止畫面分享");
+                    location.reload();
+                };
+
+            } catch (err) {
+                console.error("擷取畫面失敗: ", err);
+                alert("無法擷取畫面！請確認你已授權瀏覽器錄製螢幕的權限。");
+            }
+        }
+
+        /* ================= 觀眾端邏輯 ================= */
+        function initViewer() {
+            peer = new Peer();
+            peer.on('error', (err) => {
+                document.getElementById('status').innerText = "連線失敗，請確認代碼是否正確。";
+                document.getElementById('status').style.color = "#ef4444";
+            });
+
+            // 準備接聽講者的畫面串流
+            peer.on('call', (call) => {
+                call.answer(); // 接聽通話 (不傳送自己的畫面)
+                call.on('stream', (remoteStream) => {
+                    // 接收到講者畫面，放入全螢幕 video 標籤播放
+                    const videoEl = document.getElementById('remote-video');
+                    videoEl.srcObject = remoteStream;
+                });
+            });
+        }
+
+        function joinRoom() {
+            const hostId = document.getElementById('join-id').value.trim();
+            if (!hostId) return alert('請輸入連線代碼');
+
+            document.getElementById('status').innerText = "連線中，等待講者畫面...";
+            document.getElementById('status').style.color = "white";
+
+            // 先建立資料連線，告訴講者 "我進來了"
+            const conn = peer.connect(hostId);
+
+            conn.on('open', () => {
+                // 進入全螢幕播放介面
+                document.getElementById('viewer-ui').classList.add('hidden');
+                const viewerScreen = document.getElementById('viewer-fullscreen');
+                viewerScreen.style.display = 'flex';
+                
+                // 請求全螢幕權限
+                if (viewerScreen.requestFullscreen) {
+                    viewerScreen.requestFullscreen().catch(e => console.log(e));
+                } else if (viewerScreen.webkitRequestFullscreen) {
+                    viewerScreen.webkitRequestFullscreen();
+                }
+
+                // 通知講者發送畫面串流
+                conn.send({ type: 'viewer_ready' });
+            });
+
+            conn.on('close', () => {
+                alert('講者已中斷連線');
+                location.reload();
+            });
+        }
+    </script>
+</body>
+</html>
