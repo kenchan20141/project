@@ -6,7 +6,7 @@
     <title>SyncCast | Editorial Screen Sharing</title>
     
     <!-- 引入字體：Playfair Display (襯線體) 與 Inter (現代無襯線) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
     
     <!-- 引入 PeerJS 與 QRCode 庫 -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
@@ -147,7 +147,6 @@
             width: 100%; 
             height: 100%; 
             object-fit: contain; 
-            /* 改善畫質：防止瀏覽器縮放時過度模糊 */
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
         }
@@ -236,13 +235,14 @@
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <video id="remote-video" playsinline muted></video>
+        <video id="remote-video" autoplay playsinline muted></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
 
     <script>
-        // 增加多個全球穩定的公共 STUN 伺服器，確保跨設備 NAT 穿透成功
+        // 配置穩定的全球公共 STUN 伺服器
         const peerConfig = { 
+            debug: 1,
             config: { 
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
@@ -258,9 +258,15 @@
         
         let peer = null;
         let localStream = null;
-        let connectedViewers = new Map(); 
+        let connectedViewers = new Map(); // 儲存 peerId -> { dataConnection }
+        let activeCalls = new Map();       // 儲存 peerId -> MediaConnection
 
         window.onload = () => {
+            // 安全上下文檢查
+            if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                console.warn("WebRTC requires an HTTPS environment to function correctly across devices.");
+            }
+
             const urlParams = new URLSearchParams(window.location.search);
             const roomParam = urlParams.get('room');
             if (roomParam) {
@@ -313,18 +319,12 @@
             });
 
             peer.on('connection', (conn) => {
+                // 當新連接建立時，先清理可能存在的舊連線
+                cleanupViewer(conn.peer);
+
                 const handleConnectionOpen = () => {
-                    if (connectedViewers.has(conn.peer)) {
-                        const oldConn = connectedViewers.get(conn.peer);
-                        try { oldConn.data.close(); } catch(e){}
-                    }
-
-                    connectedViewers.set(conn.peer, { data: conn, call: null });
+                    connectedViewers.set(conn.peer, { data: conn });
                     updateViewerCount();
-
-                    if (localStream) {
-                        callViewer(conn.peer);
-                    }
                 };
 
                 if (conn.open) {
@@ -334,19 +334,18 @@
                 }
 
                 conn.on('data', (data) => {
+                    // 只在收到 Ready 且尚未建立媒體連線時發起呼叫
                     if (data.type === 'VIEWER_READY' && localStream) {
                         callViewer(conn.peer);
                     }
                 });
 
                 conn.on('close', () => {
-                    connectedViewers.delete(conn.peer);
-                    updateViewerCount();
+                    cleanupViewer(conn.peer);
                 });
 
                 conn.on('error', () => {
-                    connectedViewers.delete(conn.peer);
-                    updateViewerCount();
+                    cleanupViewer(conn.peer);
                 });
             });
 
@@ -359,22 +358,49 @@
             });
         }
 
+        function cleanupViewer(peerId) {
+            if (connectedViewers.has(peerId)) {
+                const viewer = connectedViewers.get(peerId);
+                try { viewer.data.close(); } catch(e){}
+                connectedViewers.delete(peerId);
+            }
+            if (activeCalls.has(peerId)) {
+                const call = activeCalls.get(peerId);
+                try { call.close(); } catch(e){}
+                activeCalls.delete(peerId);
+            }
+            updateViewerCount();
+        }
+
         function updateViewerCount() {
             document.getElementById('viewer-count').innerText = connectedViewers.size;
         }
 
         function callViewer(peerId) {
             if (!localStream) return;
+            
+            // 避免對同一個觀眾重複呼叫導致 WebRTC SDP 衝突
+            if (activeCalls.has(peerId)) {
+                return;
+            }
+
             const call = peer.call(peerId, localStream);
-            const viewer = connectedViewers.get(peerId);
-            if (viewer) {
-                viewer.call = call;
+            if (call) {
+                activeCalls.set(peerId, call);
+                
+                call.on('close', () => {
+                    activeCalls.delete(peerId);
+                });
+                
+                call.on('error', (err) => {
+                    console.error("Media call error:", err);
+                    activeCalls.delete(peerId);
+                });
             }
         }
 
         async function startScreenShare() {
             try {
-                // 強制提高螢幕共享解析度與品質參數，防止畫面模糊
                 localStream = await navigator.mediaDevices.getDisplayMedia({ 
                     video: { 
                         width: { ideal: 1920, max: 2560 },
@@ -397,16 +423,29 @@
                     btnShare.style.background = "var(--morandi-primary)";
                     localVideo.srcObject = null;
                     document.querySelector('.preview-placeholder').style.display = 'block';
+                    
+                    // 通知所有觀眾
+                    connectedViewers.forEach(viewer => {
+                        try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){}
+                    });
+
+                    // 釋放舊連線
+                    activeCalls.forEach(call => {
+                        try { call.close(); } catch(e){}
+                    });
+                    activeCalls.clear();
                     localStream = null;
                 };
 
-                connectedViewers.forEach((viewerInfo, peerId) => {
+                // 開始分享後，通知目前已連線的所有觀眾
+                connectedViewers.forEach((viewer, peerId) => {
+                    try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                     callViewer(peerId);
                 });
 
             } catch (err) {
                 console.error(err);
-                alert("Cannot access screen. Please check browser permissions.");
+                alert("無法存取螢幕，請確認瀏覽器權限或是否處於安全 HTTPS 環境下。");
             }
         }
 
@@ -430,8 +469,7 @@
                 try { peer.destroy(); } catch(e){}
             }
 
-            // 【核心修正】明確傳入第一個參數為 undefined，第二個參數為 options 
-            // 如此 PeerJS 才會正確載入含有 STUN 的 peerConfig 設定，實現跨網段連線
+            // 使用 undefined 確保 PeerJS 使用配置的 STUN 進行 NAT 穿透
             peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
@@ -473,6 +511,13 @@
                     conn.on('open', handleConnOpen);
                 }
 
+                conn.on('data', (data) => {
+                    if (data.type === 'STOP_SHARE') {
+                        alert('Presenter stopped sharing.');
+                        location.reload();
+                    }
+                });
+
                 conn.on('close', () => { 
                     alert('Host ended the session.'); 
                     location.reload(); 
@@ -487,7 +532,7 @@
 
             peer.on('error', (err) => {
                 console.error("Peer connection error:", err);
-                alert("Cannot find host. Please check the Access Code or network.");
+                alert("Cannot find host. Please check the Access Code, internet connection, or security settings.");
                 location.reload();
             });
         }
