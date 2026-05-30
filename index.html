@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncCast - Screen Sharing Studio</title>
-
+    <title>SyncCast | Editorial Screen Sharing</title>
+    
     <!-- 引入字體：Playfair Display (襯線體) 與 Inter (現代無襯線) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
-
+    
     <!-- 引入 PeerJS 與 QRCode 庫 -->
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -65,7 +65,9 @@
         }
 
         @media (min-width: 480px) {
-            .container { padding: 48px 40px; }
+            .container {
+                padding: 48px 40px;
+            }
         }
 
         .hidden { 
@@ -172,7 +174,7 @@
 
         /* 觀眾播放區 */
         #viewer-player {
-            position: fixed; inset: 0; background: #1A1A1A; z-index: 999;
+            position: fixed; inset: 0; background: #111; z-index: 999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         #remote-video { width: 100%; height: 100%; object-fit: contain; }
@@ -187,23 +189,38 @@
             cursor: pointer; font-family: var(--font-sans); font-size: 14px;
         }
 
-        /* --- 開發者除錯系統面板 --- */
-        #debug-panel {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh;
-            background: rgba(15, 15, 15, 0.95); color: #55ff55;
-            font-family: 'Courier New', Courier, monospace; font-size: 12px;
-            z-index: 99999; display: none; flex-direction: column;
-            padding: 10px; box-sizing: border-box; border-top: 1px solid #333;
+        /* --- 系統診斷控制台樣式 (Diagnostics Panel) --- */
+        .debug-btn {
+            position: fixed; bottom: 16px; right: 16px; z-index: 10000;
+            padding: 8px 16px; background: rgba(44, 48, 46, 0.85); border: 1px solid var(--morandi-border);
+            color: #EAE5DF; font-family: monospace; font-size: 11px; cursor: pointer; letter-spacing: 1px;
         }
-        #debug-content {
-            flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.4; padding-right: 5px;
+        .debug-panel {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 260px;
+            background: #111111; border-top: 1px solid #333; z-index: 9999;
+            display: flex; flex-direction: column; font-family: monospace; color: #2ecc71;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.5); transition: transform 0.3s ease;
         }
-        #btn-debug {
-            position: fixed; bottom: 12px; right: 12px; z-index: 99998; 
-            background: rgba(44, 48, 46, 0.8); color: #fff; border: 1px solid #7A8485; 
-            padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
-            width: auto; margin: 0; text-transform: none; letter-spacing: 1px;
+        .debug-panel.collapsed {
+            transform: translateY(100%);
         }
+        .debug-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 16px; border-bottom: 1px solid #222; background: #161616;
+            color: #eee; font-size: 12px; letter-spacing: 1px;
+        }
+        .debug-header button {
+            width: auto; padding: 4px 10px; margin: 0; font-size: 10px;
+            color: #eee; border-color: #444; background: transparent;
+        }
+        .debug-header button:hover { background: rgba(255,255,255,0.1); }
+        .debug-logs {
+            flex: 1; padding: 12px 16px; overflow-y: auto; font-size: 11px; line-height: 1.6;
+        }
+        .log-line { margin-bottom: 4px; word-break: break-all; }
+        .log-time { color: #888; margin-right: 6px; }
+        .log-error { color: #e74c3c; }
+        .log-warn { color: #f1c40f; }
     </style>
 </head>
 <body>
@@ -251,31 +268,49 @@
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <!-- 確保 playsinline 與 muted 存在以符合行動版瀏覽器政策 -->
         <video id="remote-video" autoplay playsinline muted></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
 
-    <!-- 5. 錯誤偵測除錯面板 -->
-    <div id="debug-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #333;">
-            <span style="font-weight:bold; color:#fff;">System Logs & Diagnostics</span>
-            <button onclick="toggleDebug()" style="padding: 2px 8px; font-size: 10px; width: auto; margin: 0; border: 1px solid #fff; background: transparent; color: #fff;">Close</button>
+    <!-- 5. 系統診斷控制台 -->
+    <button class="debug-btn" onclick="toggleDebugPanel()">Debug</button>
+    <div id="debug-panel" class="debug-panel collapsed">
+        <div class="debug-header">
+            <span>System Logs & Diagnostics</span>
+            <button onclick="toggleDebugPanel()">CLOSE</button>
         </div>
-        <div id="debug-content"></div>
+        <div id="debug-logs" class="debug-logs"></div>
     </div>
-    <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
-        // 設定 STUN Server (提供跨網域 NAT 穿透功能)
+        // 配置全球公共 STUN 與 Metered Open Relay 提供的免費中繼 TURN 伺服器
+        // 用以解決 4G/5G 行動網路或對稱型防火牆下的 WebRTC 穿透失敗問題
         const peerConfig = { 
-            debug: 2, 
+            debug: 1,
             config: { 
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                     { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' }
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' },
+                    // 使用 Metered Open Relay 免費公共中繼服務
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelay',
+                        credential: 'openrelay'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelay',
+                        credential: 'openrelay'
+                    },
+                    {
+                        urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+                        username: 'openrelay',
+                        credential: 'openrelay'
+                    }
                 ],
                 'iceCandidatePoolSize': 10
             }
@@ -283,50 +318,43 @@
         
         let peer = null;
         let localStream = null;
-        let connectedViewers = new Map(); 
-        let activeCalls = new Map();       
-
-        /* ================= 除錯日誌核心 ================= */
-        function logDebug(msg, isError = false) {
-            const panel = document.getElementById('debug-panel');
-            const content = document.getElementById('debug-content');
-            
-            // 發生錯誤時自動彈出 Debug 視窗
-            if (isError && (panel.style.display === 'none' || panel.style.display === '')) {
-                panel.style.display = 'flex';
-            }
-
-            const line = document.createElement('div');
-            line.style.color = isError ? '#ff5555' : '#55ff55';
-            line.style.marginBottom = '4px';
-            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-            line.innerText = `[${time}] ${msg}`;
-            content.appendChild(line);
-            content.scrollTop = content.scrollHeight;
-            
-            if (isError) console.error(msg); else console.log(msg);
-        }
-
-        function toggleDebug() {
-            const panel = document.getElementById('debug-panel');
-            panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
-        }
+        let connectedViewers = new Map(); // 儲存 peerId -> { dataConnection }
+        let activeCalls = new Map();       // 儲存 peerId -> MediaConnection
 
         window.onload = () => {
-            if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                logDebug("WARNING: WebRTC requires an HTTPS environment. Connection may fail on mobile devices.", true);
-            }
-
+            log("System Initialized.");
             const urlParams = new URLSearchParams(window.location.search);
             const roomParam = urlParams.get('room');
             if (roomParam) {
+                log("Detected Room ID from URL: " + roomParam);
                 document.getElementById('join-id').value = roomParam;
                 document.getElementById('view-home').classList.add('hidden');
                 document.getElementById('view-viewer').classList.remove('hidden');
                 document.getElementById('viewer-subtitle').innerText = "Access Code Loaded";
-                logDebug("Detected Room ID from URL: " + roomParam);
             }
         };
+
+        /* ================= 系統診斷日誌功能 ================= */
+        function log(message, type = 'info') {
+            const logsContainer = document.getElementById('debug-logs');
+            if (!logsContainer) return;
+
+            const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            if (type === 'error') logLine.classList.add('log-error');
+            if (type === 'warn') logLine.classList.add('log-warn');
+
+            logLine.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+            logsContainer.appendChild(logLine);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            console.log(`[${time}] [${type.toUpperCase()}] ${message}`);
+        }
+
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debug-panel');
+            panel.classList.toggle('collapsed');
+        }
 
         function switchView(viewId) {
             document.querySelectorAll('.container, #viewer-player').forEach(el => el.classList.add('hidden'));
@@ -334,12 +362,11 @@
         }
 
         function initRole(role) {
+            log(`Role selected: ${role}`);
             if (role === 'presenter') {
-                logDebug("Initializing as Presenter (Studio)");
                 switchView('view-presenter');
                 setupPresenter();
             } else {
-                logDebug("Initializing as Viewer");
                 switchView('view-viewer');
             }
         }
@@ -347,59 +374,90 @@
         /* ================= 講者端邏輯 ================= */
         function setupPresenter() {
             const roomId = generateShortID();
+            log(`Setting up Presenter with Room ID: ${roomId}`);
             
-            if (peer) { try { peer.destroy(); } catch(e){} }
+            if (peer) {
+                try { peer.destroy(); } catch(e){}
+            }
+
             peer = new Peer(roomId, peerConfig); 
             
             peer.on('open', (id) => {
-                logDebug(`Presenter Peer opened. Studio ID: ${id}`);
+                log(`Presenter Peer Server connected. Room ID: ${id}`);
                 document.getElementById('room-id').innerText = id;
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
                 
                 const qrContainer = document.getElementById("qrcode");
                 qrContainer.innerHTML = "";
+                
                 new QRCode(qrContainer, {
-                    text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF", correctLevel: QRCode.CorrectLevel.M
+                    text: joinUrl, 
+                    width: 128, 
+                    height: 128,
+                    colorDark: "#2C302E", 
+                    colorLight: "#F5F3EF",
+                    correctLevel: QRCode.CorrectLevel.M
                 });
             });
 
             peer.on('connection', (conn) => {
-                logDebug(`Viewer initiating connection: ${conn.peer}`);
+                log(`Incoming connection request from: ${conn.peer}`);
                 cleanupViewer(conn.peer);
 
                 const handleConnectionOpen = () => {
-                    logDebug(`Viewer Data connection open: ${conn.peer}`);
+                    log(`Data connection successfully opened with: ${conn.peer}`);
                     connectedViewers.set(conn.peer, { data: conn });
                     updateViewerCount();
+
+                    // 綁定基礎 WebRTC 狀態監控
+                    if (conn.peerConnection) {
+                        conn.peerConnection.oniceconnectionstatechange = () => {
+                            log(`Viewer ${conn.peer.substring(0,6)} ICE Connection State: ${conn.peerConnection.iceConnectionState}`);
+                        };
+                    }
                 };
 
-                if (conn.open) handleConnectionOpen(); else conn.on('open', handleConnectionOpen);
+                if (conn.open) {
+                    handleConnectionOpen();
+                } else {
+                    conn.on('open', handleConnectionOpen);
+                }
 
                 conn.on('data', (data) => {
-                    logDebug(`Data from ${conn.peer}: ${JSON.stringify(data)}`);
+                    log(`Received signal from viewer: ${data.type}`);
                     if (data.type === 'VIEWER_READY' && localStream) {
-                        logDebug(`Viewer ${conn.peer} is ready. Sending screen stream...`);
                         callViewer(conn.peer);
                     }
                 });
 
-                conn.on('close', () => { logDebug(`Viewer closed connection: ${conn.peer}`); cleanupViewer(conn.peer); });
-                conn.on('error', (err) => { logDebug(`Data channel error with ${conn.peer}: ${err.message}`, true); cleanupViewer(conn.peer); });
+                conn.on('close', () => {
+                    log(`Viewer ${conn.peer} data connection closed.`);
+                    cleanupViewer(conn.peer);
+                });
+
+                conn.on('error', (err) => {
+                    log(`Viewer ${conn.peer} connection error: ${err.message}`, 'error');
+                    cleanupViewer(conn.peer);
+                });
             });
 
             peer.on('error', (err) => {
-                logDebug(`Presenter PeerJS Error [${err.type}]: ${err.message}`, true);
-                if (err.type === 'unavailable-id') setupPresenter();
+                log(`Presenter core error: ${err.type}`, 'error');
+                if (err.type === 'unavailable-id') {
+                    setupPresenter();
+                }
             });
         }
 
         function cleanupViewer(peerId) {
             if (connectedViewers.has(peerId)) {
-                try { connectedViewers.get(peerId).data.close(); } catch(e){}
+                const viewer = connectedViewers.get(peerId);
+                try { viewer.data.close(); } catch(e){}
                 connectedViewers.delete(peerId);
             }
             if (activeCalls.has(peerId)) {
-                try { activeCalls.get(peerId).close(); } catch(e){}
+                const call = activeCalls.get(peerId);
+                try { call.close(); } catch(e){}
                 activeCalls.delete(peerId);
             }
             updateViewerCount();
@@ -411,39 +469,51 @@
 
         function callViewer(peerId) {
             if (!localStream) return;
+            
             if (activeCalls.has(peerId)) {
-                logDebug(`Skipped. Already calling viewer: ${peerId}`); return;
+                log(`Media call already active with ${peerId}. Skipping.`);
+                return;
             }
 
-            try {
-                logDebug(`Initiating media stream to viewer: ${peerId}`);
-                const call = peer.call(peerId, localStream);
-                if (call) {
-                    activeCalls.set(peerId, call);
-                    
-                    if (call.peerConnection) {
-                        call.peerConnection.addEventListener('connectionstatechange', () => {
-                            logDebug(`[${peerId}] WebRTC State: ${call.peerConnection.connectionState}`);
-                        });
-                    }
-                    
-                    call.on('close', () => { activeCalls.delete(peerId); logDebug(`Call ended for ${peerId}`); });
-                    call.on('error', (err) => { logDebug(`Media call error [${peerId}]: ${err.message}`, true); activeCalls.delete(peerId); });
+            log(`Initiating video call to viewer: ${peerId}`);
+            const call = peer.call(peerId, localStream);
+            if (call) {
+                activeCalls.set(peerId, call);
+                
+                if (call.peerConnection) {
+                    call.peerConnection.oniceconnectionstatechange = () => {
+                        log(`Media Call ICE State: ${call.peerConnection.iceConnectionState}`);
+                    };
                 }
-            } catch (err) {
-                logDebug(`Failed to call ${peerId}: ${err.message}`, true);
+
+                call.on('close', () => {
+                    log(`Media call with ${peerId} closed.`);
+                    activeCalls.delete(peerId);
+                });
+                
+                call.on('error', (err) => {
+                    log(`Media call with ${peerId} failed: ${err.message}`, 'error');
+                    activeCalls.delete(peerId);
+                });
             }
         }
 
         async function startScreenShare() {
             try {
-                logDebug("Requesting Display Media (Screen)...");
-                localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                    throw new Error("您的瀏覽器或設備不支援螢幕分享功能。");
+                }
+
+                log("Requesting screen capturing permissions...");
+                // 使用基礎相容規格，排除多餘限制，增加手機授權成功率
+                const constraints = { 
+                    video: true, 
                     audio: false 
-                });
+                };
                 
-                logDebug("Screen Media Acquired Successfully!");
+                localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+                log("Screen sharing permission granted.");
+                
                 const localVideo = document.getElementById('local-video');
                 localVideo.srcObject = localStream;
                 document.querySelector('.preview-placeholder').style.display = 'none';
@@ -453,27 +523,54 @@
                 btnShare.style.background = "#6B7A75"; 
                 
                 localStream.getVideoTracks()[0].onended = () => {
-                    logDebug("Screen Sharing Stopped by Presenter.");
-                    btnShare.innerText = "Start Screen Share";
-                    btnShare.style.background = "var(--morandi-primary)";
-                    localVideo.srcObject = null;
-                    document.querySelector('.preview-placeholder').style.display = 'block';
-                    
-                    connectedViewers.forEach(viewer => { try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){} });
-                    activeCalls.forEach(call => { try { call.close(); } catch(e){} });
-                    activeCalls.clear();
-                    localStream = null;
+                    log("Screen capture track ended by system.");
+                    stopScreenShare();
                 };
 
+                // 分享啟動後，呼叫當前所有已排隊的觀眾
                 connectedViewers.forEach((viewer, peerId) => {
                     try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                     callViewer(peerId);
                 });
 
             } catch (err) {
-                logDebug(`Screen Share Failed [${err.name}]: ${err.message}`, true);
-                alert("無法存取螢幕，請確認瀏覽器支援度，且講者端不應使用手機/平板發起螢幕分享。\n詳細錯誤請見 Debug 面板。");
+                log(`Failed to initiate screen share: ${err.message || err.name}`, 'error');
+                let userFriendlyMessage = "無法啟動螢幕分享。";
+                if (err.name === 'NotAllowedError') {
+                    userFriendlyMessage = "存取遭拒。請授權瀏覽器進行「螢幕錄製」或「螢幕分享」權限。";
+                } else if (err.name === 'NotFoundError' || err.name === 'NotSupportedError') {
+                    userFriendlyMessage = "您的裝置系統限制了網頁端的螢幕共享功能。";
+                } else {
+                    userFriendlyMessage += ` (原因: ${err.message || err.name})`;
+                }
+                alert(userFriendlyMessage);
             }
+        }
+
+        function stopScreenShare() {
+            log("Stopping screen sharing...");
+            const btnShare = document.getElementById('btn-share');
+            btnShare.innerText = "Start Screen Share";
+            btnShare.style.background = "var(--morandi-primary)";
+            
+            const localVideo = document.getElementById('local-video');
+            localVideo.srcObject = null;
+            document.querySelector('.preview-placeholder').style.display = 'block';
+            
+            connectedViewers.forEach(viewer => {
+                try { viewer.data.send({ type: 'STOP_SHARE' }); } catch(e){}
+            });
+
+            activeCalls.forEach(call => {
+                try { call.close(); } catch(e){}
+            });
+            activeCalls.clear();
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            log("Screen sharing successfully stopped.");
         }
 
         function generateShortID() {
@@ -488,101 +585,118 @@
             const hostId = document.getElementById('join-id').value.trim().toUpperCase();
             if (!hostId) return;
 
-            logDebug(`Viewer connecting to Host ID: ${hostId}`);
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
             loadingMsg.innerText = "Initializing connection...";
 
-            if (peer) { try { peer.destroy(); } catch(e){} }
+            log(`Viewer connecting to Host ID: ${hostId}`);
+
+            if (peer) {
+                try { peer.destroy(); } catch(e){}
+            }
+
             peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
-                logDebug(`Incoming stream call from Host: ${call.peer}`);
+                log("Incoming media stream session received from Presenter.");
                 call.answer(); 
                 
                 if (call.peerConnection) {
-                    call.peerConnection.addEventListener('connectionstatechange', () => {
-                        logDebug(`Viewer WebRTC State: ${call.peerConnection.connectionState}`);
-                    });
-                    call.peerConnection.addEventListener('iceconnectionstatechange', () => {
-                        logDebug(`Viewer ICE State: ${call.peerConnection.iceConnectionState}`);
-                    });
+                    call.peerConnection.oniceconnectionstatechange = () => {
+                        log(`Media Channel WebRTC State: ${call.peerConnection.iceConnectionState}`);
+                    };
                 }
-                
+
                 call.on('stream', (remoteStream) => {
-                    logDebug("Remote stream track received!");
+                    log("Media Stream tracks received. Binding to player...");
                     document.getElementById('player-loading').style.display = 'none';
                     
                     const videoEl = document.getElementById('remote-video');
+                    videoEl.srcObject = remoteStream;
                     
-                    if (videoEl.srcObject !== remoteStream) {
-                        videoEl.srcObject = remoteStream;
-                    }
-                    
-                    videoEl.onloadedmetadata = () => { logDebug("Stream metadata loaded."); };
-                    videoEl.onresize = () => { logDebug(`Video Frame Size: ${videoEl.videoWidth}x${videoEl.videoHeight}`); };
-
-                    // 針對 iOS Safari 必須強迫手動啟動播放，否則畫面會停滯
-                    logDebug("Attempting hardware playback (videoEl.play())...");
-                    const playPromise = videoEl.play();
-                    if (playPromise !== undefined) {
-                        playPromise.then(() => {
-                            logDebug("Video playback started successfully.");
-                            document.getElementById('manual-play-btn').style.display = 'none';
+                    videoEl.onloadedmetadata = () => {
+                        videoEl.play().then(() => {
+                            log("Stream media playback started successfully.");
                         }).catch(e => {
-                            logDebug(`Browser Blocked Autoplay: ${e.name} - ${e.message}`, true);
+                            log("Autoplay blocked by mobile browser privacy policy. Showing overlay trigger.", 'warn');
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
-                    }
+                    };
                 });
 
-                call.on('close', () => { logDebug('Host ended the media stream.', true); });
-                call.on('error', (err) => { logDebug(`Media stream error: ${err.message}`, true); });
+                call.on('close', () => {
+                    log("Media stream closed by host.");
+                    alert('Session stream closed.');
+                    location.reload();
+                });
             });
 
             peer.on('open', (viewerId) => {
-                logDebug(`Viewer Peer Ready. My ID: ${viewerId}`);
+                log(`Viewer Peer Ready. My ID: ${viewerId}`);
                 loadingMsg.innerText = `Connecting to Studio: ${hostId}...`;
                 
                 const conn = peer.connect(hostId, { reliable: true });
                 
+                // 綁定基礎 WebRTC 連線狀態檢測
                 if (conn.peerConnection) {
-                    conn.peerConnection.addEventListener('connectionstatechange', () => {
-                        logDebug(`Data Channel WebRTC State: ${conn.peerConnection.connectionState}`);
-                    });
+                    log(`Data Channel WebRTC State: ${conn.peerConnection.iceConnectionState}`);
+                    conn.peerConnection.oniceconnectionstatechange = () => {
+                        const state = conn.peerConnection.iceConnectionState;
+                        log(`Data Channel WebRTC State: ${state}`);
+                        if (state === 'failed') {
+                            log("Direct connection failed. Retrying with TURN relay...", "warn");
+                        }
+                    };
                 }
 
                 const handleConnOpen = () => {
-                    logDebug("Data Connection established. Waiting for screen share.");
+                    log("Data connection handshake established.");
                     loadingMsg.innerText = "Connected! Waiting for host to share screen...";
                     conn.send({ type: 'VIEWER_READY' });
                 };
 
-                if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
+                if (conn.open) {
+                    handleConnOpen();
+                } else {
+                    conn.on('open', handleConnOpen);
+                }
 
                 conn.on('data', (data) => {
-                    logDebug(`Host Event: ${data.type}`);
-                    if (data.type === 'STOP_SHARE') { logDebug('Host stopped sharing screen.', true); }
+                    log(`Received signal from Host: ${data.type}`);
+                    if (data.type === 'STOP_SHARE') {
+                        alert('Presenter stopped sharing.');
+                        location.reload();
+                    }
                 });
 
-                conn.on('close', () => { logDebug('Host disconnected the session.', true); });
-                conn.on('error', (err) => { logDebug(`Data connection error: ${err.message}`, true); });
+                conn.on('close', () => { 
+                    log("Connection closed by host.");
+                    alert('Host ended the session.'); 
+                    location.reload(); 
+                });
+
+                conn.on('error', (err) => {
+                    log(`Data connection error: ${err.message}`, 'error');
+                    alert('Connection lost.');
+                    location.reload();
+                });
             });
 
             peer.on('error', (err) => {
-                logDebug(`PeerJS Global Error [${err.type}]: ${err.message}`, true);
-                // 不自動重整，讓開發者與使用者能從畫面上閱讀錯誤發生原因。
+                log(`Viewer core PeerJS error: ${err.type}`, 'error');
+                alert("Cannot find host. Please check the Access Code or network settings.");
+                location.reload();
             });
         }
 
         function forcePlay() {
-            logDebug("User forced video playback.");
+            log("Manual playback trigger selected.");
             const videoEl = document.getElementById('remote-video');
             videoEl.play().then(() => {
-                logDebug("Force playback successful!");
                 document.getElementById('manual-play-btn').style.display = 'none';
+                log("Forced stream playback successful.");
             }).catch(e => {
-                logDebug(`Force playback failed: ${e.name} - ${e.message}`, true);
+                log(`Forced playback failed: ${e.message}`, 'error');
             });
         }
     </script>
