@@ -47,7 +47,7 @@
         .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
         .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; }
         .preview-wrapper { width: 100%; aspect-ratio: 16/9; background: #E5E2DA; border: 1px solid var(--morandi-border); margin-bottom: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; }
+        video { width: 100%; height: 100%; object-fit: contain; }
         .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
         #qrcode { display: flex; justify-content: center; margin: 24px auto 0; width: 100%; max-width: 140px; }
         #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 8px solid #FFF; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -101,7 +101,6 @@
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <!-- 加入了 preload="auto" 協助手機端預載 -->
         <video id="remote-video" autoplay playsinline muted preload="auto"></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
@@ -116,22 +115,20 @@
     <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
+        // 移除了失效的 TURN 伺服器，改用高穩定性的 STUN 以確保跨設備順利穿透 NAT
         const peerConfig = { 
-            debug: 1, // 降低 PeerJS 預設錯誤印出，改用我們的自定義攔截
+            debug: 1, 
             config: { 
                 iceServers: [
-                    { urls: 'stun:stun.cloudflare.com:3478' },
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
-                ],
-                iceCandidatePoolSize: 10
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun.cloudflare.com:3478' }
+                ]
             }
         };
         
         let peer = null;
         let localStream = null;
-        // 修改：存放 viewers 的結構加入 lastPing 用來做心跳包偵測
         let connectedViewers = new Map(); 
         let activeCalls = new Map();      
         let reconnectTimers = new Map();  
@@ -192,10 +189,17 @@
             peer.on('open', (id) => {
                 logDebug(`Studio Created. ID: ${id}`);
                 document.getElementById('room-id').innerText = id;
-                const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
-                new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
                 
-                // 啟動講者端心跳包機制 (Heartbeat)
+                // 產生 QR Code (清空防止重疊生成)
+                const qrcodeContainer = document.getElementById("qrcode");
+                qrcodeContainer.innerHTML = ''; 
+                const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
+                new QRCode(qrcodeContainer, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
+                
+                if (window.location.protocol === 'file:') {
+                    logDebug("Warning: Running from file:// protocol. QR Code won't work across devices unless hosted on a server.", false, true);
+                }
+
                 startHeartbeat();
             });
 
@@ -213,7 +217,6 @@
 
                 conn.on('data', (data) => {
                     if (data.type === 'PONG') {
-                        // 收到心跳回覆，更新最後存活時間
                         if (connectedViewers.has(conn.peer)) {
                             connectedViewers.get(conn.peer).lastPing = Date.now();
                         }
@@ -228,9 +231,8 @@
             });
 
             peer.on('error', (err) => {
-                // 過濾掉幽靈重連導致的 "peer-unavailable" 錯誤，不讓它變紅字
                 if (err.type === 'peer-unavailable') {
-                    logDebug(`Note: A peer disconnected abruptly (peer-unavailable). Cleaned up automatically.`, false, true);
+                    logDebug(`Note: A peer disconnected abruptly (peer-unavailable).`, false, true);
                 } else {
                     logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
                 }
@@ -238,18 +240,15 @@
             });
         }
 
-        // 心跳包偵測機制
         function startHeartbeat() {
             if (heartbeatTimer) clearInterval(heartbeatTimer);
             heartbeatTimer = setInterval(() => {
                 const now = Date.now();
                 connectedViewers.forEach((viewer, peerId) => {
-                    // 如果超過 12 秒沒收到觀眾的 PONG，代表對方已經直接關閉網頁/掉線
                     if (now - viewer.lastPing > 12000) {
                         logDebug(`Viewer ${peerId} timed out (No Heartbeat). Removing them.`);
                         cleanupViewer(peerId);
                     } else {
-                        // 發送心跳 Ping
                         try { viewer.data.send({ type: 'PING' }); } catch(e){}
                     }
                 });
@@ -294,7 +293,6 @@
                                 
                                 clearTimeout(reconnectTimers.get(peerId));
                                 reconnectTimers.set(peerId, setTimeout(() => {
-                                    // 確保觀眾的資料通道還活著 (表示沒重整頁面)，才進行自動重連
                                     if (connectedViewers.has(peerId) && localStream) {
                                         logDebug(`[${peerId}] Heartbeat is alive. Executing auto-reconnect.`);
                                         callViewer(peerId);
@@ -384,7 +382,6 @@
                         videoEl.srcObject = remoteStream;
                     }
                     
-                    // 為了防止手機黑屏等待太久，提早顯示手動播放按鈕
                     let playAttempted = false;
 
                     videoEl.onloadedmetadata = () => {
@@ -399,7 +396,6 @@
                         });
                     };
 
-                    // 如果元數據遲遲無法載入，3秒後也顯示出強制播放按鈕給使用者
                     setTimeout(() => {
                         if (!playAttempted) {
                             logDebug("Video stall detected. Showing manual play button.", false, true);
@@ -426,7 +422,6 @@
                 if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
 
                 conn.on('data', (data) => {
-                    // 自動回覆心跳包
                     if (data.type === 'PING') {
                         conn.send({ type: 'PONG' });
                     }
@@ -439,7 +434,7 @@
                     }
                 });
 
-                conn.on('close', () => { alert('Session closed.'); location.reload(); });
+                conn.on('close', () => { alert('Session closed by host.'); location.href = window.location.pathname; });
             });
 
             peer.on('error', (err) => { logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); });
@@ -454,6 +449,20 @@
                 logDebug(`Manual play failed: ${e.message}`, true);
             });
         }
+
+        /* ====== 自動辨識 URL 參數做為進入會議室機制的 QR Code 支援 ====== */
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            if (room) {
+                logDebug("Detected Room ID from URL. Auto-Joining...");
+                document.getElementById('join-id').value = room.toUpperCase();
+                initRole('viewer');
+                setTimeout(() => {
+                    joinSession();
+                }, 500);
+            }
+        });
     </script>
 </body>
 </html>
