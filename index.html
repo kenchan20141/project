@@ -47,7 +47,7 @@
         .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
         .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; }
         .preview-wrapper { width: 100%; aspect-ratio: 16/9; background: #E5E2DA; border: 1px solid var(--morandi-border); margin-bottom: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; }
+        video { width: 100%; height: 100%; object-fit: contain; image-rendering: -webkit-optimize-contrast; }
         .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
         #qrcode { display: flex; justify-content: center; margin: 24px auto 0; width: 100%; max-width: 140px; }
         #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 8px solid #FFF; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -55,14 +55,17 @@
         .status-dot { width: 6px; height: 6px; background: var(--morandi-primary); border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         
-        #viewer-player { position: fixed; inset: 0; background: #1A1A1A; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; }
+        #viewer-player { position: fixed; inset: 0; background: #1A1A1A; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+        .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; z-index: 1001; pointer-events: none; }
         .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
-        #manual-play-btn { position: absolute; z-index: 1000; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px; }
+        #manual-play-btn { position: absolute; z-index: 1002; padding: 16px 32px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4); color: #FFF; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: none; cursor: pointer; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         
         #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(15, 15, 15, 0.95); color: #55ff55; font-family: 'Courier New', Courier, monospace; font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 10px; box-sizing: border-box; border-top: 1px solid #333; }
         #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.5; padding-right: 5px; }
         #btn-debug { position: fixed; bottom: 12px; right: 12px; z-index: 99998; background: rgba(44, 48, 46, 0.9); color: #fff; border: 1px solid #7A8485; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: auto; margin: 0; }
+        
+        /* 觀眾端視訊專用排版，避免手機端高度塌陷 */
+        #remote-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1000; background: #000; }
     </style>
 </head>
 <body>
@@ -97,13 +100,13 @@
         <button onclick="location.reload()">Back</button>
     </div>
 
-    <div id="viewer-player" class="hidden">
+    <!-- 點擊整個播放器區域也可以嘗試解鎖播放 -->
+    <div id="viewer-player" class="hidden" onclick="triggerManualPlay()">
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <!-- 加入了 preload="auto" 協助手機端預載 -->
         <video id="remote-video" autoplay playsinline muted preload="auto"></video>
-        <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
+        <button id="manual-play-btn" onclick="forcePlay(event)">Tap to Play Stream</button>
     </div>
 
     <div id="debug-panel">
@@ -116,22 +119,33 @@
     <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
+        // 強化 ICE 伺服器配置（包含穩定的 TURN 轉發，有助於行動網路穿透）
         const peerConfig = { 
-            debug: 1, // 降低 PeerJS 預設錯誤印出，改用我們的自定義攔截
+            debug: 1, 
             config: { 
                 iceServers: [
                     { urls: 'stun:stun.cloudflare.com:3478' },
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:80', 
+                        username: 'openrelayproject', 
+                        credential: 'openrelayproject' 
+                    },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:443', 
+                        username: 'openrelayproject', 
+                        credential: 'openrelayproject' 
+                    }
                 ],
-                iceCandidatePoolSize: 10
+                iceCandidatePoolSize: 10,
+                sdpSemantics: 'unified-plan'
             }
         };
         
         let peer = null;
         let localStream = null;
-        // 修改：存放 viewers 的結構加入 lastPing 用來做心跳包偵測
         let connectedViewers = new Map(); 
         let activeCalls = new Map();      
         let reconnectTimers = new Map();  
@@ -193,9 +207,11 @@
                 logDebug(`Studio Created. ID: ${id}`);
                 document.getElementById('room-id').innerText = id;
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
-                new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
                 
-                // 啟動講者端心跳包機制 (Heartbeat)
+                const qrcodeContainer = document.getElementById("qrcode");
+                qrcodeContainer.innerHTML = '';
+                new QRCode(qrcodeContainer, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
+                
                 startHeartbeat();
             });
 
@@ -213,7 +229,6 @@
 
                 conn.on('data', (data) => {
                     if (data.type === 'PONG') {
-                        // 收到心跳回覆，更新最後存活時間
                         if (connectedViewers.has(conn.peer)) {
                             connectedViewers.get(conn.peer).lastPing = Date.now();
                         }
@@ -228,9 +243,8 @@
             });
 
             peer.on('error', (err) => {
-                // 過濾掉幽靈重連導致的 "peer-unavailable" 錯誤，不讓它變紅字
                 if (err.type === 'peer-unavailable') {
-                    logDebug(`Note: A peer disconnected abruptly (peer-unavailable). Cleaned up automatically.`, false, true);
+                    logDebug(`Note: A peer disconnected abruptly. Cleaned up automatically.`, false, true);
                 } else {
                     logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
                 }
@@ -238,18 +252,15 @@
             });
         }
 
-        // 心跳包偵測機制
         function startHeartbeat() {
             if (heartbeatTimer) clearInterval(heartbeatTimer);
             heartbeatTimer = setInterval(() => {
                 const now = Date.now();
                 connectedViewers.forEach((viewer, peerId) => {
-                    // 如果超過 12 秒沒收到觀眾的 PONG，代表對方已經直接關閉網頁/掉線
                     if (now - viewer.lastPing > 12000) {
                         logDebug(`Viewer ${peerId} timed out (No Heartbeat). Removing them.`);
                         cleanupViewer(peerId);
                     } else {
-                        // 發送心跳 Ping
                         try { viewer.data.send({ type: 'PING' }); } catch(e){}
                     }
                 });
@@ -294,7 +305,6 @@
                                 
                                 clearTimeout(reconnectTimers.get(peerId));
                                 reconnectTimers.set(peerId, setTimeout(() => {
-                                    // 確保觀眾的資料通道還活著 (表示沒重整頁面)，才進行自動重連
                                     if (connectedViewers.has(peerId) && localStream) {
                                         logDebug(`[${peerId}] Heartbeat is alive. Executing auto-reconnect.`);
                                         callViewer(peerId);
@@ -317,7 +327,7 @@
         async function startScreenShare() {
             try {
                 localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } }, 
                     audio: false 
                 });
                 
@@ -364,6 +374,16 @@
             if (!hostId) return;
 
             logDebug(`Connecting to Host: ${hostId}`);
+            
+            // 行動瀏覽器優化：在用戶點擊按鈕的「當下執行執行緒」預熱播放器以解除解鎖限制
+            const videoEl = document.getElementById('remote-video');
+            videoEl.play().then(() => {
+                videoEl.pause();
+                logDebug("Mobile Autoplay policy pre-unlocked successfully.");
+            }).catch(e => {
+                logDebug("Pre-unlocking ran (expected block before load).");
+            });
+
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
             loadingMsg.innerText = "Initializing network...";
@@ -379,33 +399,31 @@
                     logDebug("Stream track received.");
                     document.getElementById('player-loading').style.display = 'none';
                     
-                    const videoEl = document.getElementById('remote-video');
                     if (videoEl.srcObject !== remoteStream) {
                         videoEl.srcObject = remoteStream;
                     }
                     
-                    // 為了防止手機黑屏等待太久，提早顯示手動播放按鈕
                     let playAttempted = false;
 
                     videoEl.onloadedmetadata = () => {
-                        logDebug("Metadata loaded. Forcing playback...");
+                        logDebug("Metadata loaded. Executing playback...");
                         playAttempted = true;
                         videoEl.play().then(() => {
                             logDebug("Autoplay succeeded!");
                             document.getElementById('manual-play-btn').style.display = 'none';
                         }).catch(e => {
-                            logDebug(`Browser Blocked Autoplay. Require tap.`, true);
+                            logDebug(`Browser Blocked Autoplay: ${e.message}`, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
                     };
 
-                    // 如果元數據遲遲無法載入，3秒後也顯示出強制播放按鈕給使用者
+                    // 超時保護：若 2.5 秒內 metadata 仍卡住，主動呼叫顯示手動點擊
                     setTimeout(() => {
-                        if (!playAttempted) {
-                            logDebug("Video stall detected. Showing manual play button.", false, true);
+                        if (!playAttempted || videoEl.paused) {
+                            logDebug("Video playback status stall detected. Triggering manual fallback UI.", false, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
                         }
-                    }, 3000);
+                    }, 2500);
                 });
 
                 call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); });
@@ -426,7 +444,6 @@
                 if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
 
                 conn.on('data', (data) => {
-                    // 自動回覆心跳包
                     if (data.type === 'PING') {
                         conn.send({ type: 'PONG' });
                     }
@@ -445,8 +462,10 @@
             peer.on('error', (err) => { logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); });
         }
 
-        function forcePlay() {
-            logDebug("Manual play pressed.");
+        // 強制播放控制
+        function forcePlay(event) {
+            if (event) event.stopPropagation();
+            logDebug("Manual play initiated.");
             const videoEl = document.getElementById('remote-video');
             videoEl.play().then(() => {
                 document.getElementById('manual-play-btn').style.display = 'none';
@@ -454,6 +473,24 @@
                 logDebug(`Manual play failed: ${e.message}`, true);
             });
         }
+
+        // 全螢幕點擊（點擊畫面任何一處皆能嘗試解開靜音播放限制）
+        function triggerManualPlay() {
+            const playBtn = document.getElementById('manual-play-btn');
+            if (playBtn.style.display === 'block') {
+                forcePlay(null);
+            }
+        }
+
+        // 檢查網址參數自動載入
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const roomParam = params.get('room');
+            if (roomParam) {
+                initRole('viewer');
+                document.getElementById('join-id').value = roomParam;
+            }
+        });
     </script>
 </body>
 </html>
