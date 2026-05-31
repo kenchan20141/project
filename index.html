@@ -204,7 +204,7 @@
             new QRCode(qrcodeEl, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
 
             try {
-                // 核心修正：必須寫入初始資料，讓房間節點在資料庫中真正「存在」
+                // 寫入初始資料，確保房間存在
                 await database.ref(`rooms/${currentRoomId}`).set({
                     status: "active",
                     createdAt: firebase.database.ServerValue.TIMESTAMP
@@ -289,7 +289,7 @@
             };
 
             try {
-                // 清空快取以防止髒資料干擾
+                // 清空快取以防止舊資料干擾
                 await database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/answer`).remove();
                 await database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/hostCandidates`).remove();
 
@@ -304,7 +304,7 @@
                 // 監聽觀眾傳回的 SDP Answer
                 database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/answer`).on('value', async (snapshot) => {
                     const answer = snapshot.val();
-                    if (answer && pc.signalingState !== 'stable') {
+                    if (answer && !isRemoteDescSet) {
                         logDebug(`[Host] Answer received from: ${viewerId}`);
                         try {
                             await pc.setRemoteDescription(new RTCSessionDescription(answer));
@@ -313,7 +313,7 @@
                             // 釋放暫存的 ICE
                             while (remoteIceQueue.length > 0) {
                                 const cand = remoteIceQueue.shift();
-                                pc.addIceCandidate(cand).catch(() => {});
+                                pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
                             }
                         } catch (err) {
                             logDebug(`[Host] Set Remote Description Error: ${err.message}`, true);
@@ -326,7 +326,7 @@
                     const candidate = snapshot.val();
                     if (candidate) {
                         if (isRemoteDescSet) {
-                            pc.addIceCandidate(candidate).catch(() => {});
+                            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
                         } else {
                             remoteIceQueue.push(candidate);
                         }
@@ -370,7 +370,7 @@
             const remoteStream = new MediaStream();
             videoEl.srcObject = remoteStream;
 
-            // 預解鎖播放管線
+            // 預先解鎖播放
             try {
                 await videoEl.play();
                 videoEl.pause();
@@ -385,7 +385,7 @@
             const remoteIceQueue = [];
             let isRemoteDescSet = false;
 
-            // 將接收到的 track 直接添加進先前綁定的遠端 Stream 中
+            // 將接收到的 track 直接添加至先前綁定的遠端 Stream 中
             pc.ontrack = (event) => {
                 logDebug(`[Viewer] Stream Track event received: ${event.track.kind}`);
                 document.getElementById('player-loading').style.display = 'none';
@@ -422,10 +422,10 @@
             await viewerRef.child('join').set(true);
             loadingMsg.innerText = "Waiting for host offer...";
 
-            // 監聽 Host Offer 並進行 ICE 暫存處理
+            // 修正點：利用 isRemoteDescSet 來防止非預期狀態下的 Offer 重複或錯誤解鎖
             viewerRef.child('offer').on('value', async (snapshot) => {
                 const offer = snapshot.val();
-                if (offer && pc.signalingState !== 'stable') {
+                if (offer && !isRemoteDescSet) {
                     logDebug("[Viewer] Offer received. Executing handshake...");
                     try {
                         await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -443,7 +443,7 @@
                         // 釋放暫存的 Host ICE 候選者
                         while (remoteIceQueue.length > 0) {
                             const cand = remoteIceQueue.shift();
-                            pc.addIceCandidate(cand).catch(() => {});
+                            pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
                         }
                     } catch (err) {
                         logDebug(`[Viewer] Handshake Exception: ${err.message}`, true);
@@ -456,7 +456,7 @@
                 const candidate = snapshot.val();
                 if (candidate) {
                     if (isRemoteDescSet) {
-                        pc.addIceCandidate(candidate).catch(() => {});
+                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
                     } else {
                         remoteIceQueue.push(candidate);
                     }
