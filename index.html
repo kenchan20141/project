@@ -193,7 +193,7 @@
         }
 
         /* ==================== 講者端邏輯 (Presenter) ==================== */
-        function setupPresenter() {
+        async function setupPresenter() {
             currentRoomId = generateShortID();
             document.getElementById('room-id').innerText = currentRoomId;
             logDebug(`Studio room created. Room ID: ${currentRoomId}`);
@@ -203,8 +203,19 @@
             qrcodeEl.innerHTML = "";
             new QRCode(qrcodeEl, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
 
-            // 設定斷線自動清除節點，避免舊房間殘留
-            database.ref(`rooms/${currentRoomId}`).onDisconnect().remove();
+            try {
+                // 核心修正：必須寫入初始資料，讓房間節點在資料庫中真正「存在」
+                await database.ref(`rooms/${currentRoomId}`).set({
+                    status: "active",
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                // 設定斷線自動清除節點，避免舊房間殘留
+                database.ref(`rooms/${currentRoomId}`).onDisconnect().remove();
+                logDebug("Database room registered successfully.");
+            } catch (err) {
+                logDebug(`Failed to initialize room in database: ${err.message}`, true);
+            }
 
             // 監聽新觀眾的加入
             database.ref(`rooms/${currentRoomId}/viewers`).on('child_added', (snapshot) => {
@@ -355,7 +366,7 @@
             const videoEl = document.getElementById('remote-video');
             const loadingMsg = document.getElementById('loading-msg');
 
-            // 核心優化 1：先期宣告並綁定 MediaStream，避免 Safari 阻擋重新設定的 srcObject
+            // 預備並綁定 MediaStream
             const remoteStream = new MediaStream();
             videoEl.srcObject = remoteStream;
 
@@ -374,7 +385,7 @@
             const remoteIceQueue = [];
             let isRemoteDescSet = false;
 
-            // 核心優化 2：將接收到的 track 直接添加進先前綁定的遠端 Stream 中
+            // 將接收到的 track 直接添加進先前綁定的遠端 Stream 中
             pc.ontrack = (event) => {
                 logDebug(`[Viewer] Stream Track event received: ${event.track.kind}`);
                 document.getElementById('player-loading').style.display = 'none';
@@ -400,18 +411,18 @@
                 logDebug(`[Viewer] Connection state: ${pc.connectionState}`);
             };
 
-            // 清空該 Viewer 歷史快取，防止殘留 ICE 的干擾
+            // 清空該 Viewer 歷史快取
             const viewerRef = database.ref(`rooms/${roomId}/viewers/${viewerId}`);
             await viewerRef.remove();
 
-            // 設定斷線自動清除節點，維護資料庫清潔
+            // 設定斷線自動清除節點
             await viewerRef.onDisconnect().remove();
 
             // 在資料庫中註冊連線
             await viewerRef.child('join').set(true);
             loadingMsg.innerText = "Waiting for host offer...";
 
-            // 核心優化 3：對 Host Offer 進行 ICE 暫存處理
+            // 監聽 Host Offer 並進行 ICE 暫存處理
             viewerRef.child('offer').on('value', async (snapshot) => {
                 const offer = snapshot.val();
                 if (offer && pc.signalingState !== 'stable') {
@@ -452,7 +463,7 @@
                 }
             });
 
-            // 監聽連線斷開事件，若主機關閉則回歸首頁
+            // 監聽連線斷開事件
             database.ref(`rooms/${roomId}`).on('value', (snapshot) => {
                 if (!snapshot.exists()) {
                     alert("Presentation ended.");
