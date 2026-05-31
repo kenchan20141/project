@@ -115,28 +115,24 @@
     <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
-        // 前綴避免與其他人撞號 (這解決了您最初版本偶爾配對失敗的問題)
         const ID_PREFIX = "sync-cast-room-"; 
 
-        // 終極全免費的伺服器陣列
+        // 終極全免費陣列：移除不可靠的 TURN，放入最強的免費 STUN 陣列
         const peerConfig = { 
             debug: 2, 
             config: { 
                 iceServers: [
-                    // --- 第一層：免費且極穩定的 STUN 伺服器 (能解決 80% 問題) ---
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
                     { urls: 'stun:stun.cloudflare.com:3478' },
-                    { urls: 'stun:stun.services.mozilla.com' },
-                    
-                    // --- 第二層：開源免費的 TURN 中繼伺服器 ---
-                    // 這是 OpenRelay 計畫免費提供的，不限流量且無須 API Key。
-                    // (由於是全球免費共用，偶爾可能會稍慢，但這是不花錢唯一的最佳選擇)
-                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                    { urls: 'stun:global.stun.twilio.com:3478?transport=udp' },
+                    { urls: 'stun:stun.services.mozilla.com' }
                 ],
-                iceCandidatePoolSize: 10
+                // 加大候選池，讓瀏覽器更積極地去尋找穿透防火牆的路徑
+                iceCandidatePoolSize: 15
             }
         };
         
@@ -182,7 +178,7 @@
             document.getElementById(viewId).classList.remove('hidden');
         }
 
-        // 自動抓取網址參數 (保留掃 QR code 自動連線的功能)
+        // 自動掃描 QR Code 參數連線
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const roomFromUrl = urlParams.get('room');
