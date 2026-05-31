@@ -61,7 +61,6 @@
         .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
         #manual-play-btn { position: absolute; z-index: 1000; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px; }
         
-        /* 新增：全螢幕按鈕樣式 */
         #btn-fullscreen { 
             position: absolute; top: 16px; right: 16px; z-index: 1001; 
             background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); 
@@ -113,8 +112,8 @@
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <video id="remote-video" autoplay playsinline muted preload="auto"></video>
-        <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
+        <video id="remote-video" autoplay playsinline preload="auto"></video>
+        <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream & Audio</button>
     </div>
 
     <div id="debug-panel">
@@ -360,15 +359,15 @@
             }
         }
 
-        // 修改：使用 replaceTrack 無縫切換畫面，不中斷連線
         async function startScreenShare() {
             try {
+                // 這裡將 audio 設為 true，並請求高品質畫面
                 const newStream = await navigator.mediaDevices.getDisplayMedia({ 
                     video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
-                    audio: false 
+                    audio: true 
                 });
                 
-                logDebug("Display Media Acquired!");
+                logDebug("Display Media Acquired (Audio enabled)!");
                 document.getElementById('local-video').srcObject = newStream;
                 document.querySelector('.preview-placeholder').style.display = 'none';
 
@@ -377,30 +376,52 @@
                 btnShare.style.background = "#6B7A75"; 
 
                 if (localStream) {
-                    // 如果已經在分享，則無縫替換所有觀眾的影片軌道
-                    logDebug("Replacing existing video track for seamless transition...");
-                    const newVideoTrack = newStream.getVideoTracks()[0];
-                    activeCalls.forEach((call, peerId) => {
-                        if (call.peerConnection) {
-                            const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                            if (sender) {
-                                sender.replaceTrack(newVideoTrack).catch(e => logDebug(`Track replace failed: ${e.message}`, true));
+                    // 判斷是否需要重新建立通話 (例如從「純畫面」切換到「有聲音」，底層軌道數量變更)
+                    const oldHasAudio = localStream.getAudioTracks().length > 0;
+                    const newHasAudio = newStream.getAudioTracks().length > 0;
+
+                    if (oldHasAudio === newHasAudio) {
+                        // 如果音軌數量一致，執行無縫替換
+                        logDebug("Replacing existing tracks for seamless transition...");
+                        const newVideoTrack = newStream.getVideoTracks()[0];
+                        const newAudioTrack = newStream.getAudioTracks()[0];
+                        
+                        activeCalls.forEach((call, peerId) => {
+                            if (call.peerConnection) {
+                                const senders = call.peerConnection.getSenders();
+                                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                                const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+
+                                if (videoSender && newVideoTrack) {
+                                    videoSender.replaceTrack(newVideoTrack).catch(e => logDebug(`Video replace failed: ${e.message}`, true));
+                                }
+                                if (audioSender && newAudioTrack) {
+                                    audioSender.replaceTrack(newAudioTrack).catch(e => logDebug(`Audio replace failed: ${e.message}`, true));
+                                }
                             }
-                        }
-                    });
-                    
-                    // 停用舊的軌道以釋放資源
-                    localStream.getTracks().forEach(track => track.stop());
+                        });
+                        localStream.getTracks().forEach(track => track.stop());
+                        localStream = newStream;
+                    } else {
+                        // 如果音軌數量變更，為了確保穩定性，關閉舊連線並重新撥打給觀眾
+                        logDebug("Audio track changed. Re-establishing calls to viewers...");
+                        localStream.getTracks().forEach(track => track.stop());
+                        activeCalls.forEach(c => { try { c.close(); } catch(e){} });
+                        activeCalls.clear();
+                        
+                        localStream = newStream; // 先替換為新 stream
+                        connectedViewers.forEach((viewer, peerId) => {
+                            callViewer(peerId);
+                        });
+                    }
                 } else {
-                    // 第一次開始分享，通知並撥號給所有觀眾
-                    localStream = newStream; // 先賦值，讓 callViewer 能取用
+                    // 第一次開始分享
+                    localStream = newStream; 
                     connectedViewers.forEach((viewer, peerId) => {
                         try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                         callViewer(peerId);
                     });
                 }
-                
-                localStream = newStream;
                 
                 localStream.getVideoTracks()[0].onended = () => {
                     logDebug("Screen sharing stopped by user.");
@@ -442,13 +463,13 @@
             peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
-                logDebug(`Incoming video stream. Answering...`);
+                logDebug(`Incoming stream. Answering...`);
                 call.answer(); 
                 
                 call.on('stream', (remoteStream) => {
                     logDebug("Stream track received.");
                     document.getElementById('player-loading').style.display = 'none';
-                    document.getElementById('btn-fullscreen').style.display = 'block'; // 顯示全螢幕按鈕
+                    document.getElementById('btn-fullscreen').style.display = 'block'; 
                     
                     const videoEl = document.getElementById('remote-video');
                     if (videoEl.srcObject !== remoteStream) {
@@ -463,7 +484,8 @@
                             logDebug("Autoplay succeeded!");
                             document.getElementById('manual-play-btn').style.display = 'none';
                         }).catch(e => {
-                            logDebug(`Browser Blocked Autoplay. Require tap.`, true);
+                            // 因為現在帶有聲音，極高機率會被瀏覽器阻擋自動播放
+                            logDebug(`Browser Blocked Autoplay (Audio policy). Require tap.`, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
                     };
@@ -512,9 +534,8 @@
                         loadingMsg.innerText = "Presenter paused sharing. Waiting...";
                         document.getElementById('remote-video').srcObject = null;
                         document.getElementById('manual-play-btn').style.display = 'none';
-                        document.getElementById('btn-fullscreen').style.display = 'none'; // 隱藏全螢幕按鈕
+                        document.getElementById('btn-fullscreen').style.display = 'none';
                         
-                        // 確保暫停時若處於全螢幕，可考慮自動退出（選項設定）
                         if (document.fullscreenElement) document.exitFullscreen();
                     }
                 });
@@ -538,23 +559,21 @@
                 document.getElementById('manual-play-btn').style.display = 'none';
             }).catch(e => {
                 logDebug(`Manual play failed: ${e.message}`, true);
-                alert("Please ensure your browser allows video playback.");
+                alert("Please ensure your browser allows video & audio playback.");
             });
         }
 
-        /* 新增：全螢幕控制與事件監聽 */
         function toggleFullScreen() {
             const player = document.getElementById('viewer-player');
             if (!document.fullscreenElement) {
                 if (player.requestFullscreen) { player.requestFullscreen(); }
-                else if (player.webkitRequestFullscreen) { player.webkitRequestFullscreen(); } // Safari
+                else if (player.webkitRequestFullscreen) { player.webkitRequestFullscreen(); } 
             } else {
                 if (document.exitFullscreen) { document.exitFullscreen(); }
                 else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
             }
         }
 
-        // 監聽全螢幕狀態改變（如使用者按 ESC），同步更新按鈕文字
         document.addEventListener('fullscreenchange', updateFullscreenButton);
         document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
 
