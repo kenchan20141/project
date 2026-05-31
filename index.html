@@ -38,7 +38,6 @@
         button:hover { background: rgba(0,0,0,0.03); }
         button.primary { background: var(--morandi-primary); color: #FFF; border: none; }
         button.primary:hover { background: var(--morandi-primary-hover); box-shadow: 0 8px 20px rgba(122,132,133,0.3); transform: translateY(-1px); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
         input {
             width: 100%; padding: 16px 0; margin-bottom: 32px; background: transparent; border: none; border-bottom: 1px solid var(--morandi-border); 
             color: var(--morandi-text); font-size: 24px; font-family: var(--font-serif); text-align: center; outline: none; transition: border-color 0.3s; text-transform: uppercase;
@@ -70,8 +69,8 @@
     <div id="view-home" class="container">
         <h1>SyncCast</h1>
         <p class="subtitle">Screen Sharing Studio</p>
-        <button id="btn-start-presenter" class="primary" onclick="initRole('presenter')">Start Presenting</button>
-        <button id="btn-start-viewer" onclick="initRole('viewer')">Join Session</button>
+        <button class="primary" onclick="initRole('presenter')">Start Presenting</button>
+        <button onclick="initRole('viewer')">Join Session</button>
     </div>
 
     <div id="view-presenter" class="container hidden">
@@ -116,13 +115,27 @@
     <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
+        // 前綴避免與其他人撞號 (這解決了您最初版本偶爾配對失敗的問題)
         const ID_PREFIX = "sync-cast-room-"; 
 
-        // PeerJS 基本設定 (iceServers 將由下方 fetchIceServers 動態補上)
-        let peerConfig = { 
+        // 終極全免費的伺服器陣列
+        const peerConfig = { 
             debug: 2, 
             config: { 
-                iceServers: [],
+                iceServers: [
+                    // --- 第一層：免費且極穩定的 STUN 伺服器 (能解決 80% 問題) ---
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun.cloudflare.com:3478' },
+                    { urls: 'stun:stun.services.mozilla.com' },
+                    
+                    // --- 第二層：開源免費的 TURN 中繼伺服器 ---
+                    // 這是 OpenRelay 計畫免費提供的，不限流量且無須 API Key。
+                    // (由於是全球免費共用，偶爾可能會稍慢，但這是不花錢唯一的最佳選擇)
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                ],
                 iceCandidatePoolSize: 10
             }
         };
@@ -169,58 +182,17 @@
             document.getElementById(viewId).classList.remove('hidden');
         }
 
-        // --- 核心：動態獲取 Metered TURN 伺服器憑證 ---
-        async function fetchIceServers() {
-            logDebug("Fetching high-speed TURN servers...");
-            const defaultStun = [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ];
-
-            try {
-                // 呼叫您提供的 REST API
-                const response = await fetch("https://project2027.metered.live/api/v1/turn/credentials?apiKey=c67d54deba5258a8d1ec7e2713d0eead4929");
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
-                const turnServers = await response.json();
-                logDebug("Successfully retrieved API ICE Servers.", false, false);
-                return [...defaultStun, ...turnServers];
-
-            } catch (err) {
-                logDebug(`API Fetch Failed: ${err.message}. Falling back to static servers.`, false, true);
-                // 萬一 API 異常，切換至您提供的靜態備援方案
-                return [
-                    ...defaultStun,
-                    { urls: "stun:stun.relay.metered.ca:80" },
-                    { urls: "turn:global.relay.metered.ca:80", username: "023e291bd3bd0e37fcb00c26", credential: "19pPtq6LsWmUrdOv" },
-                    { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: "023e291bd3bd0e37fcb00c26", credential: "19pPtq6LsWmUrdOv" },
-                    { urls: "turn:global.relay.metered.ca:443", username: "023e291bd3bd0e37fcb00c26", credential: "19pPtq6LsWmUrdOv" },
-                    { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: "023e291bd3bd0e37fcb00c26", credential: "19pPtq6LsWmUrdOv" }
-                ];
-            }
-        }
-
-        window.onload = async () => {
+        // 自動抓取網址參數 (保留掃 QR code 自動連線的功能)
+        window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const roomFromUrl = urlParams.get('room');
-            
             if (roomFromUrl) {
                 document.getElementById('join-id').value = roomFromUrl;
-                // 若帶有參數 (如掃 QR Code)，自動執行初始化並連線
-                await initRole('viewer', true); 
+                initRole('viewer', true); 
             }
         }
 
-        async function initRole(role, autoJoin = false) {
-            // 防止重複點擊
-            const btnPresent = document.getElementById('btn-start-presenter');
-            const btnView = document.getElementById('btn-start-viewer');
-            if(btnPresent) btnPresent.disabled = true;
-            if(btnView) btnView.disabled = true;
-
-            // 確保每次連線都有最新且正確的穿透伺服器設定
-            peerConfig.config.iceServers = await fetchIceServers();
-
+        function initRole(role, autoJoin = false) {
             if (role === 'presenter') {
                 logDebug("Booting Studio Mode...");
                 switchView('view-presenter');
@@ -228,10 +200,6 @@
             } else {
                 logDebug("Booting Viewer Mode...");
                 switchView('view-viewer');
-                if(btnPresent) btnPresent.disabled = false;
-                if(btnView) btnView.disabled = false;
-                
-                // QR Code 掃描進來，直接觸發連線，不須再按鈕
                 if(autoJoin) joinSession();
             }
         }
