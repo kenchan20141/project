@@ -101,8 +101,8 @@
         <div id="player-loading" class="loading-box">
             <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <!-- 修復：移除 muted 屬性，螢幕分享通常無音訊，避免某些設備因音訊軌道問題無法播放 -->
-        <video id="remote-video" autoplay playsinline preload="auto"></video>
+        <!-- 加入了 preload="auto" 協助手機端預載 -->
+        <video id="remote-video" autoplay playsinline muted preload="auto"></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
 
@@ -116,34 +116,22 @@
     <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
-        // 修復：增強 PeerJS 配置，確保跨設備/跨網路連線穩定性
         const peerConfig = { 
-            debug: 1,
-            // 明確指定 PeerJS Cloud 伺服器，避免預設配置在某些網路環境下失效
-            host: '0.peerjs.com',
-            port: 443,
-            secure: true,
+            debug: 1, // 降低 PeerJS 預設錯誤印出，改用我們的自定義攔截
             config: { 
-                // 修復：添加 unified-plan 確保跨瀏覽器 SDP 協商兼容性 [[22]]
-                sdpSemantics: 'unified-plan',
-                bundlePolicy: 'max-bundle', // 減少 ICE candidate 數量，提高連線成功率
-                iceCandidatePoolSize: 10,
                 iceServers: [
-                    // 多組 STUN 伺服器，提高不同網路環境下的穿透成功率 [[15]]
                     { urls: 'stun:stun.cloudflare.com:3478' },
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    // TURN 伺服器（用於對稱型 NAT 或防火牆後的設備）
                     { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:3478', username: 'openrelayproject', credential: 'openrelayproject' }
-                ]
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                ],
+                iceCandidatePoolSize: 10
             }
         };
         
         let peer = null;
         let localStream = null;
+        // 修改：存放 viewers 的結構加入 lastPing 用來做心跳包偵測
         let connectedViewers = new Map(); 
         let activeCalls = new Map();      
         let reconnectTimers = new Map();  
@@ -207,6 +195,7 @@
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
                 new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
                 
+                // 啟動講者端心跳包機制 (Heartbeat)
                 startHeartbeat();
             });
 
@@ -224,6 +213,7 @@
 
                 conn.on('data', (data) => {
                     if (data.type === 'PONG') {
+                        // 收到心跳回覆，更新最後存活時間
                         if (connectedViewers.has(conn.peer)) {
                             connectedViewers.get(conn.peer).lastPing = Date.now();
                         }
@@ -238,6 +228,7 @@
             });
 
             peer.on('error', (err) => {
+                // 過濾掉幽靈重連導致的 "peer-unavailable" 錯誤，不讓它變紅字
                 if (err.type === 'peer-unavailable') {
                     logDebug(`Note: A peer disconnected abruptly (peer-unavailable). Cleaned up automatically.`, false, true);
                 } else {
@@ -247,15 +238,18 @@
             });
         }
 
+        // 心跳包偵測機制
         function startHeartbeat() {
             if (heartbeatTimer) clearInterval(heartbeatTimer);
             heartbeatTimer = setInterval(() => {
                 const now = Date.now();
                 connectedViewers.forEach((viewer, peerId) => {
+                    // 如果超過 12 秒沒收到觀眾的 PONG，代表對方已經直接關閉網頁/掉線
                     if (now - viewer.lastPing > 12000) {
                         logDebug(`Viewer ${peerId} timed out (No Heartbeat). Removing them.`);
                         cleanupViewer(peerId);
                     } else {
+                        // 發送心跳 Ping
                         try { viewer.data.send({ type: 'PING' }); } catch(e){}
                     }
                 });
@@ -283,13 +277,6 @@
 
             try {
                 logDebug(`Dialing viewer: ${peerId}`);
-                // 修復：確保 localStream 有效且包含視訊軌道
-                const videoTrack = localStream.getVideoTracks()[0];
-                if (!videoTrack || videoTrack.readyState !== 'live') {
-                    logDebug(`Warning: Local video track not ready for ${peerId}`, false, true);
-                    return;
-                }
-                
                 const call = peer.call(peerId, localStream);
                 
                 if (call) {
@@ -307,6 +294,7 @@
                                 
                                 clearTimeout(reconnectTimers.get(peerId));
                                 reconnectTimers.set(peerId, setTimeout(() => {
+                                    // 確保觀眾的資料通道還活著 (表示沒重整頁面)，才進行自動重連
                                     if (connectedViewers.has(peerId) && localStream) {
                                         logDebug(`[${peerId}] Heartbeat is alive. Executing auto-reconnect.`);
                                         callViewer(peerId);
@@ -328,15 +316,9 @@
 
         async function startScreenShare() {
             try {
-                // 修復：使用更寬容的媒體約束，提高跨設備兼容性
                 localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: { 
-                        // 使用 flexible 約束，讓瀏覽器自行選擇最佳解析度
-                        width: { ideal: 1280, max: 1920 }, 
-                        height: { ideal: 720, max: 1080 }, 
-                        frameRate: { ideal: 24, max: 30 }
-                    }, 
-                    audio: false // 螢幕分享通常不需要音訊，避免音訊權限問題
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
+                    audio: false 
                 });
                 
                 logDebug("Display Media Acquired!");
@@ -347,7 +329,6 @@
                 btnShare.innerText = "Sharing... Click to Change";
                 btnShare.style.background = "#6B7A75"; 
                 
-                // 監聽螢幕分享結束事件
                 localStream.getVideoTracks()[0].onended = () => {
                     logDebug("Screen sharing stopped.");
                     btnShare.innerText = "Start Screen Share";
@@ -361,7 +342,6 @@
                     localStream = null;
                 };
 
-                // 為已連線的觀眾發起呼叫
                 connectedViewers.forEach((viewer, peerId) => {
                     try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
                     callViewer(peerId);
@@ -369,10 +349,6 @@
 
             } catch (err) {
                 logDebug(`Screen Share Error: ${err.message}`, true);
-                // 用戶取消分享時，恢復按鈕狀態
-                const btnShare = document.getElementById('btn-share');
-                btnShare.innerText = "Start Screen Share";
-                btnShare.style.background = "var(--morandi-primary)";
             }
         }
 
@@ -397,8 +373,6 @@
 
             peer.on('call', (call) => {
                 logDebug(`Incoming video stream. Answering...`);
-                
-                // 修復：answer 時不傳入任何流（觀眾只接收）
                 call.answer(); 
                 
                 call.on('stream', (remoteStream) => {
@@ -406,44 +380,26 @@
                     document.getElementById('player-loading').style.display = 'none';
                     
                     const videoEl = document.getElementById('remote-video');
-                    
-                    // 修復：確保 srcObject 正確設置，並處理跨設備的媒體軌道切換
                     if (videoEl.srcObject !== remoteStream) {
-                        // 先暫停舊串流（如果有）
-                        if (videoEl.srcObject) {
-                            videoEl.srcObject.getTracks().forEach(track => track.stop());
-                        }
                         videoEl.srcObject = remoteStream;
                     }
                     
+                    // 為了防止手機黑屏等待太久，提早顯示手動播放按鈕
                     let playAttempted = false;
 
-                    // 修復：添加 onloadeddata 作為備用觸發點，提高跨設備兼容性
-                    const attemptPlay = async () => {
-                        if (playAttempted) return;
+                    videoEl.onloadedmetadata = () => {
+                        logDebug("Metadata loaded. Forcing playback...");
                         playAttempted = true;
-                        
-                        try {
-                            logDebug("Attempting video playback...");
-                            await videoEl.play();
+                        videoEl.play().then(() => {
                             logDebug("Autoplay succeeded!");
                             document.getElementById('manual-play-btn').style.display = 'none';
-                        } catch (e) {
-                            logDebug(`Browser Blocked Autoplay: ${e.name} - ${e.message}`, false, true);
+                        }).catch(e => {
+                            logDebug(`Browser Blocked Autoplay. Require tap.`, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
-                        }
+                        });
                     };
 
-                    // 優先使用 onloadedmetadata，備用 onloadeddata
-                    videoEl.onloadedmetadata = attemptPlay;
-                    videoEl.onloadeddata = attemptPlay;
-                    
-                    // 如果媒體軌道已經就緒，立即嘗試播放
-                    if (videoEl.readyState >= 2) {
-                        attemptPlay();
-                    }
-
-                    // 備用：3 秒後顯示手動播放按鈕
+                    // 如果元數據遲遲無法載入，3秒後也顯示出強制播放按鈕給使用者
                     setTimeout(() => {
                         if (!playAttempted) {
                             logDebug("Video stall detected. Showing manual play button.", false, true);
@@ -452,24 +408,13 @@
                     }, 3000);
                 });
 
-                call.on('error', (err) => { 
-                    logDebug(`Media Error: ${err.message}`, true);
-                    document.getElementById('player-loading').style.display = 'block';
-                    document.getElementById('loading-msg').innerText = "Connection error. Please reconnect.";
-                });
-                
-                call.on('close', () => {
-                    logDebug("Call closed by remote peer.");
-                    document.getElementById('player-loading').style.display = 'block';
-                    document.getElementById('loading-msg').innerText = "Stream ended. Waiting for presenter...";
-                });
+                call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); });
             });
 
             peer.on('open', (viewerId) => {
                 logDebug(`Viewer ID: ${viewerId}`);
                 loadingMsg.innerText = `Contacting Studio...`;
                 
-                // 修復：添加 reliable: true 確保資料通道穩定
                 const conn = peer.connect(hostId, { reliable: true });
                 
                 const handleConnOpen = () => {
@@ -481,6 +426,7 @@
                 if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
 
                 conn.on('data', (data) => {
+                    // 自動回覆心跳包
                     if (data.type === 'PING') {
                         conn.send({ type: 'PONG' });
                     }
@@ -488,34 +434,15 @@
                         logDebug('Host paused screen share.', false, true); 
                         document.getElementById('player-loading').style.display = 'block';
                         loadingMsg.innerText = "Presenter paused sharing. Waiting...";
-                        const videoEl = document.getElementById('remote-video');
-                        if (videoEl.srcObject) {
-                            videoEl.srcObject.getTracks().forEach(track => track.stop());
-                            videoEl.srcObject = null;
-                        }
+                        document.getElementById('remote-video').srcObject = null;
                         document.getElementById('manual-play-btn').style.display = 'none';
                     }
                 });
 
-                conn.on('close', () => { 
-                    logDebug("Data channel closed.");
-                    // 避免彈出中斷體驗，改為在 UI 顯示提示
-                    document.getElementById('player-loading').style.display = 'block';
-                    document.getElementById('loading-msg').innerText = "Session disconnected. Please refresh to reconnect.";
-                });
-                
-                conn.on('error', (err) => {
-                    logDebug(`Data Channel Error: ${err.message}`, true);
-                    document.getElementById('player-loading').style.display = 'block';
-                    document.getElementById('loading-msg').innerText = "Connection error. Please try again.";
-                });
+                conn.on('close', () => { alert('Session closed.'); location.reload(); });
             });
 
-            peer.on('error', (err) => { 
-                logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
-                document.getElementById('player-loading').style.display = 'block';
-                document.getElementById('loading-msg').innerText = `Error: ${err.type}. Please check your connection.`;
-            });
+            peer.on('error', (err) => { logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); });
         }
 
         function forcePlay() {
@@ -523,37 +450,10 @@
             const videoEl = document.getElementById('remote-video');
             videoEl.play().then(() => {
                 document.getElementById('manual-play-btn').style.display = 'none';
-                logDebug("Manual play succeeded!");
             }).catch(e => {
-                logDebug(`Manual play failed: ${e.name} - ${e.message}`, true);
-                // 顯示更友好的錯誤提示
-                alert('Unable to play stream. Please ensure:\n1. You have granted screen sharing permission\n2. Your browser allows autoplay\n3. Try refreshing the page');
+                logDebug(`Manual play failed: ${e.message}`, true);
             });
         }
-
-        // 修復：頁面卸載時清理資源，避免幽靈連線
-        window.addEventListener('beforeunload', () => {
-            if (heartbeatTimer) clearInterval(heartbeatTimer);
-            if (peer) {
-                try { peer.destroy(); } catch(e){}
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-        });
-
-        // 修復：處理頁面可見性變化，暫停心跳節省資源
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                logDebug("Page hidden, pausing heartbeat...");
-                if (heartbeatTimer) clearInterval(heartbeatTimer);
-            } else {
-                logDebug("Page visible, resuming heartbeat...");
-                if (document.getElementById('view-presenter') && !document.getElementById('view-presenter').classList.contains('hidden')) {
-                    startHeartbeat();
-                }
-            }
-        });
     </script>
 </body>
 </html>
