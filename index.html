@@ -69,6 +69,15 @@
         }
         #btn-fullscreen:hover { background: rgba(255,255,255,0.25); }
 
+        /* 新增：退出按鈕樣式 */
+        #btn-exit { 
+            position: absolute; top: 16px; left: 16px; z-index: 1001; 
+            background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.4); 
+            color: #FFF; backdrop-filter: blur(4px); padding: 8px 16px; font-size: 12px; 
+            cursor: pointer; border-radius: 4px; display: none; width: auto; margin: 0; transition: background 0.3s;
+        }
+        #btn-exit:hover { background: rgba(255,100,100,0.35); }
+
         #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(15, 15, 15, 0.95); color: #55ff55; font-family: 'Courier New', Courier, monospace; font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 10px; box-sizing: border-box; border-top: 1px solid #333; }
         #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.5; padding-right: 5px; }
         #btn-debug { position: fixed; bottom: 12px; right: 12px; z-index: 99998; background: rgba(44, 48, 46, 0.9); color: #fff; border: 1px solid #7A8485; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: auto; margin: 0; }
@@ -107,6 +116,7 @@
     </div>
 
     <div id="viewer-player" class="hidden">
+        <button id="btn-exit" onclick="confirmExit()">⍈ Exit / 退出</button>
         <button id="btn-fullscreen" onclick="toggleFullScreen()">⛶ Fullscreen</button>
         
         <div id="player-loading" class="loading-box">
@@ -361,7 +371,6 @@
 
         async function startScreenShare() {
             try {
-                // 這裡將 audio 設為 true，並請求高品質畫面
                 const newStream = await navigator.mediaDevices.getDisplayMedia({ 
                     video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
                     audio: true 
@@ -376,12 +385,10 @@
                 btnShare.style.background = "#6B7A75"; 
 
                 if (localStream) {
-                    // 判斷是否需要重新建立通話 (例如從「純畫面」切換到「有聲音」，底層軌道數量變更)
                     const oldHasAudio = localStream.getAudioTracks().length > 0;
                     const newHasAudio = newStream.getAudioTracks().length > 0;
 
                     if (oldHasAudio === newHasAudio) {
-                        // 如果音軌數量一致，執行無縫替換
                         logDebug("Replacing existing tracks for seamless transition...");
                         const newVideoTrack = newStream.getVideoTracks()[0];
                         const newAudioTrack = newStream.getAudioTracks()[0];
@@ -403,19 +410,17 @@
                         localStream.getTracks().forEach(track => track.stop());
                         localStream = newStream;
                     } else {
-                        // 如果音軌數量變更，為了確保穩定性，關閉舊連線並重新撥打給觀眾
                         logDebug("Audio track changed. Re-establishing calls to viewers...");
                         localStream.getTracks().forEach(track => track.stop());
                         activeCalls.forEach(c => { try { c.close(); } catch(e){} });
                         activeCalls.clear();
                         
-                        localStream = newStream; // 先替換為新 stream
+                        localStream = newStream; 
                         connectedViewers.forEach((viewer, peerId) => {
                             callViewer(peerId);
                         });
                     }
                 } else {
-                    // 第一次開始分享
                     localStream = newStream; 
                     connectedViewers.forEach((viewer, peerId) => {
                         try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
@@ -458,6 +463,9 @@
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
             loadingMsg.innerText = "Initializing network...";
+            
+            // 一進入播放介面就顯示退出按鈕，讓用戶在等待時也能取消
+            document.getElementById('btn-exit').style.display = 'block';
 
             if (peer) { try { peer.destroy(); } catch(e){} }
             peer = new Peer(undefined, peerConfig);
@@ -484,7 +492,6 @@
                             logDebug("Autoplay succeeded!");
                             document.getElementById('manual-play-btn').style.display = 'none';
                         }).catch(e => {
-                            // 因為現在帶有聲音，極高機率會被瀏覽器阻擋自動播放
                             logDebug(`Browser Blocked Autoplay (Audio policy). Require tap.`, true);
                             document.getElementById('manual-play-btn').style.display = 'block';
                         });
@@ -563,6 +570,7 @@
             });
         }
 
+        /* 全螢幕控制 */
         function toggleFullScreen() {
             const player = document.getElementById('viewer-player');
             if (!document.fullscreenElement) {
@@ -583,6 +591,28 @@
                 btn.innerText = "⛶ Fullscreen";
             } else {
                 btn.innerText = "✖ Exit Fullscreen";
+            }
+        }
+
+        /* 新增：退出並確認邏輯 */
+        function confirmExit() {
+            const isConfirmed = window.confirm("確定要退出觀看嗎？\nAre you sure you want to exit?");
+            if (isConfirmed) {
+                logDebug("User confirmed exit. Terminating session...");
+                
+                // 1. 如果在全螢幕狀態，先退出全螢幕
+                if (document.fullscreenElement || document.webkitFullscreenElement) {
+                    if (document.exitFullscreen) { document.exitFullscreen(); }
+                    else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+                }
+                
+                // 2. 切斷 WebRTC 確保資源釋放
+                if (peer) {
+                    try { peer.destroy(); } catch(e) { logDebug(`Peer destroy error: ${e.message}`, true); }
+                }
+                
+                // 3. 重新載入頁面，乾淨俐落地回到首頁
+                location.reload();
             }
         }
     </script>
