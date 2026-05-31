@@ -136,6 +136,8 @@
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.services.mozilla.com' },
                 { 
                     urls: 'turn:openrelay.metered.ca:80', 
                     username: 'openrelayproject', 
@@ -201,6 +203,9 @@
             qrcodeEl.innerHTML = "";
             new QRCode(qrcodeEl, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
 
+            // 設定斷線自動清除節點，避免舊房間殘留
+            database.ref(`rooms/${currentRoomId}`).onDisconnect().remove();
+
             // 監聽新觀眾的加入
             database.ref(`rooms/${currentRoomId}/viewers`).on('child_added', (snapshot) => {
                 const viewerId = snapshot.key;
@@ -245,7 +250,6 @@
             }
         }
 
-        // 核心修正：講者連線控制（加入 ICE 候選暫存機制）
         async function initiatePeerConnection(viewerId) {
             if (peerConnections.has(viewerId)) return;
 
@@ -261,7 +265,7 @@
 
             // 當產生本地 ICE 候選時推入 Firebase
             pc.onicecandidate = (event) => {
-                if (event.candidate) {
+                if (event.candidate && peerConnections.has(viewerId)) {
                     database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/hostCandidates`).push(event.candidate.toJSON());
                 }
             };
@@ -298,7 +302,7 @@
                             // 釋放暫存的 ICE
                             while (remoteIceQueue.length > 0) {
                                 const cand = remoteIceQueue.shift();
-                                pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                                pc.addIceCandidate(cand).catch(() => {});
                             }
                         } catch (err) {
                             logDebug(`[Host] Set Remote Description Error: ${err.message}`, true);
@@ -311,7 +315,7 @@
                     const candidate = snapshot.val();
                     if (candidate) {
                         if (isRemoteDescSet) {
-                            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+                            pc.addIceCandidate(candidate).catch(() => {});
                         } else {
                             remoteIceQueue.push(candidate);
                         }
@@ -337,18 +341,29 @@
             const roomId = document.getElementById('join-id').value.trim().toUpperCase();
             if (!roomId) return;
 
-            logDebug(`[Viewer] Registering with room: ${roomId}`);
+            logDebug(`[Viewer] Verifying room: ${roomId}`);
+
+            // 檢查房間節點是否存在
+            const roomCheck = await database.ref(`rooms/${roomId}`).once('value');
+            if (!roomCheck.exists()) {
+                alert("Room code does not exist. Please double check.");
+                return;
+            }
+
             switchView('viewer-player');
 
             const videoEl = document.getElementById('remote-video');
             const loadingMsg = document.getElementById('loading-msg');
 
-            // 核心修正 1：iOS Safari / 行動端影片預熱解鎖
+            // 核心優化 1：先期宣告並綁定 MediaStream，避免 Safari 阻擋重新設定的 srcObject
+            const remoteStream = new MediaStream();
+            videoEl.srcObject = remoteStream;
+
+            // 預解鎖播放管線
             try {
-                videoEl.srcObject = new MediaStream();
                 await videoEl.play();
                 videoEl.pause();
-                logDebug("[Viewer] Video element pre-unlocked successfully.");
+                logDebug("[Viewer] Video element pre-unlocked.");
             } catch (e) {
                 logDebug("[Viewer] Video warm-up triggered.");
             }
@@ -359,20 +374,12 @@
             const remoteIceQueue = [];
             let isRemoteDescSet = false;
 
-            // 核心修正 2：Safari / 行動瀏覽器多核心相容的軌道綁定機制
+            // 核心優化 2：將接收到的 track 直接添加進先前綁定的遠端 Stream 中
             pc.ontrack = (event) => {
-                logDebug("[Viewer] Stream Track event received.");
+                logDebug(`[Viewer] Stream Track event received: ${event.track.kind}`);
                 document.getElementById('player-loading').style.display = 'none';
                 
-                if (event.streams && event.streams[0]) {
-                    videoEl.srcObject = event.streams[0];
-                } else {
-                    // 若 event.streams 遺失，動態手動構建流，避開 iOS 解碼黑屏 Bug
-                    if (!videoEl.srcObject || !(videoEl.srcObject instanceof MediaStream)) {
-                        videoEl.srcObject = new MediaStream();
-                    }
-                    videoEl.srcObject.addTrack(event.track);
-                }
+                remoteStream.addTrack(event.track);
 
                 videoEl.play().then(() => {
                     logDebug("[Viewer] Stream is playing smoothly.");
@@ -389,15 +396,22 @@
                 }
             };
 
+            pc.onconnectionstatechange = () => {
+                logDebug(`[Viewer] Connection state: ${pc.connectionState}`);
+            };
+
             // 清空該 Viewer 歷史快取，防止殘留 ICE 的干擾
             const viewerRef = database.ref(`rooms/${roomId}/viewers/${viewerId}`);
             await viewerRef.remove();
+
+            // 設定斷線自動清除節點，維護資料庫清潔
+            await viewerRef.onDisconnect().remove();
 
             // 在資料庫中註冊連線
             await viewerRef.child('join').set(true);
             loadingMsg.innerText = "Waiting for host offer...";
 
-            // 核心修正 3：對 Host Offer 進行 ICE 暫存處理
+            // 核心優化 3：對 Host Offer 進行 ICE 暫存處理
             viewerRef.child('offer').on('value', async (snapshot) => {
                 const offer = snapshot.val();
                 if (offer && pc.signalingState !== 'stable') {
@@ -418,7 +432,7 @@
                         // 釋放暫存的 Host ICE 候選者
                         while (remoteIceQueue.length > 0) {
                             const cand = remoteIceQueue.shift();
-                            pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                            pc.addIceCandidate(cand).catch(() => {});
                         }
                     } catch (err) {
                         logDebug(`[Viewer] Handshake Exception: ${err.message}`, true);
@@ -431,7 +445,7 @@
                 const candidate = snapshot.val();
                 if (candidate) {
                     if (isRemoteDescSet) {
-                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+                        pc.addIceCandidate(candidate).catch(() => {});
                     } else {
                         remoteIceQueue.push(candidate);
                     }
