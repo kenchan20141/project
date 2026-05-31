@@ -1,15 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncCast - Professional Screen Share</title>
+    <title>SyncCast - Screen Sharing Studio</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
-    
-    <!-- 引入 Firebase 核心相容庫 -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
@@ -24,7 +21,7 @@
             display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px 16px; 
             -webkit-font-smoothing: antialiased;
         }
-        body::before { content: "VOL. 3"; position: absolute; top: 24px; left: 24px; font-size: 11px; letter-spacing: 4px; color: var(--morandi-muted); }
+        body::before { content: "VOL. 1"; position: absolute; top: 24px; left: 24px; font-size: 11px; letter-spacing: 4px; color: var(--morandi-muted); }
         .container {
             background: var(--morandi-surface); border: 1px solid var(--morandi-border); padding: 32px 24px; width: 100%; max-width: 400px;
             text-align: center; box-shadow: 10px 10px 40px rgba(0,0,0,0.04); position: relative; transition: opacity 0.4s ease, transform 0.4s ease;
@@ -50,15 +47,18 @@
         .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
         .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; }
         .preview-wrapper { width: 100%; aspect-ratio: 16/9; background: #E5E2DA; border: 1px solid var(--morandi-border); margin-bottom: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: contain; }
+        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; }
         .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
         #qrcode { display: flex; justify-content: center; margin: 24px auto 0; width: 100%; max-width: 140px; }
         #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 8px solid #FFF; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .status-text { font-size: 13px; color: var(--morandi-primary); display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; }
+        .status-dot { width: 6px; height: 6px; background: var(--morandi-primary); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         
         #viewer-player { position: fixed; inset: 0; background: #1A1A1A; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; z-index: 1001; }
+        .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; }
         .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
-        #manual-play-btn { position: absolute; z-index: 1002; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px; }
+        #manual-play-btn { position: absolute; z-index: 1000; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px; }
         
         #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(15, 15, 15, 0.95); color: #55ff55; font-family: 'Courier New', Courier, monospace; font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 10px; box-sizing: border-box; border-top: 1px solid #333; }
         #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.5; padding-right: 5px; }
@@ -68,12 +68,11 @@
 <body>
     <div id="view-home" class="container">
         <h1>SyncCast</h1>
-        <p class="subtitle">Realtime WebRTC Studio</p>
+        <p class="subtitle">Screen Sharing Studio</p>
         <button class="primary" onclick="initRole('presenter')">Start Presenting</button>
         <button onclick="initRole('viewer')">Join Session</button>
     </div>
 
-    <!-- 講者控制面板 -->
     <div id="view-presenter" class="container hidden">
         <h1>Studio</h1>
         <p class="subtitle">Broadcast Dashboard</p>
@@ -83,33 +82,33 @@
             <span class="preview-placeholder">Live Preview</span>
             <video id="local-video" autoplay playsinline muted></video>
         </div>
+        <div class="status-text">
+            <span class="status-dot"></span>Connected Viewers: <span id="viewer-count" style="margin-left:4px; font-weight:600;">0</span>
+        </div>
         <button id="btn-share" class="primary" onclick="startScreenShare()">Start Screen Share</button>
-        <button onclick="location.reload()" style="border-color: #ff5555; color: #ff5555;">End Session</button>
         <div id="qrcode"></div>
     </div>
 
-    <!-- 觀眾加入面板 -->
     <div id="view-viewer" class="container hidden">
         <h1>Join</h1>
-        <p class="subtitle">Enter Access Code</p>
+        <p class="subtitle" id="viewer-subtitle">Enter Access Code</p>
         <input type="text" id="join-id" placeholder="e.g. 8A9X" autocomplete="off" maxlength="4">
         <button class="primary" onclick="joinSession()">Connect</button>
         <button onclick="location.reload()">Back</button>
     </div>
 
-    <!-- 觀眾播放面板 -->
     <div id="viewer-player" class="hidden">
         <div id="player-loading" class="loading-box">
-            <div class="loading-text" id="loading-msg">Connecting to Studio via Firebase...</div>
-            <button onclick="location.reload()" style="width: auto; padding: 8px 16px; border: 1px solid #fff; color: #fff; background: transparent;">Exit</button>
+            <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-        <video id="remote-video" autoplay playsinline muted></video>
+        <!-- 加入了 preload="auto" 協助手機端預載 -->
+        <video id="remote-video" autoplay playsinline muted preload="auto"></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream</button>
     </div>
 
     <div id="debug-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #333;">
-            <span style="font-weight:bold; color:#fff;">Diagnostics Logs</span>
+            <span style="font-weight:bold; color:#fff;">Diagnostics & Heartbeat Logs</span>
             <button onclick="toggleDebug()" style="padding: 2px 8px; font-size: 10px; width: auto; margin: 0; border: 1px solid #fff; background: transparent; color: #fff;">Close</button>
         </div>
         <div id="debug-content"></div>
@@ -117,54 +116,50 @@
     <button id="btn-debug" onclick="toggleDebug()">Debug</button>
 
     <script>
-        // Firebase 專案設定值
-        const firebaseConfig = {
-            apiKey: "AIzaSyDN2Rhj_vBHPyayi-zCXWjS68Yp7J9SGKk",
-            authDomain: "project-344d0.firebaseapp.com",
-            databaseURL: "https://project-344d0-default-rtdb.firebaseio.com",
-            projectId: "project-344d0",
-            storageBucket: "project-344d0.firebasestorage.app",
-            messagingSenderId: "138565573188",
-            appId: "1:138565573188:web:59ebcf0015c18b3c8eba11"
+        const peerConfig = { 
+            debug: 1, // 降低 PeerJS 預設錯誤印出，改用我們的自定義攔截
+            config: { 
+                iceServers: [
+                    { urls: 'stun:stun.cloudflare.com:3478' },
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                ],
+                iceCandidatePoolSize: 10
+            }
         };
-
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        // 包含公共 STUN 和轉發 TURN 伺服器的 WebRTC 配備
-        const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.services.mozilla.com' },
-                { 
-                    urls: 'turn:openrelay.metered.ca:80', 
-                    username: 'openrelayproject', 
-                    credential: 'openrelayproject' 
-                },
-                { 
-                    urls: 'turn:openrelay.metered.ca:443', 
-                    username: 'openrelayproject', 
-                    credential: 'openrelayproject' 
-                }
-            ],
-            sdpSemantics: 'unified-plan'
-        };
-
+        
+        let peer = null;
         let localStream = null;
-        let currentRoomId = null;
-        let peerConnections = new Map();
+        // 修改：存放 viewers 的結構加入 lastPing 用來做心跳包偵測
+        let connectedViewers = new Map(); 
+        let activeCalls = new Map();      
+        let reconnectTimers = new Map();  
+        let heartbeatTimer = null;
 
-        function logDebug(msg, isError = false) {
+        function logDebug(msg, isError = false, isWarning = false) {
+            const panel = document.getElementById('debug-panel');
             const content = document.getElementById('debug-content');
+            
+            if ((isError || isWarning) && (panel.style.display === 'none' || panel.style.display === '')) {
+                panel.style.display = 'flex';
+            }
+
             const line = document.createElement('div');
-            line.style.color = isError ? '#ff5555' : '#55ff55';
+            if (isError) line.style.color = '#ff5555';
+            else if (isWarning) line.style.color = '#ffaa00';
+            else line.style.color = '#55ff55';
+            
             line.style.marginBottom = '6px';
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
             line.innerText = `[${time}] ${msg}`;
+            
             content.appendChild(line);
             content.scrollTop = content.scrollHeight;
+            
+            if (isError) console.error(msg); 
+            else if (isWarning) console.warn(msg);
+            else console.log(msg);
         }
 
         function toggleDebug() {
@@ -179,10 +174,181 @@
 
         function initRole(role) {
             if (role === 'presenter') {
+                logDebug("Booting Studio Mode...");
                 switchView('view-presenter');
                 setupPresenter();
             } else {
+                logDebug("Booting Viewer Mode...");
                 switchView('view-viewer');
+            }
+        }
+
+        /* ================= 講者端邏輯 ================= */
+        function setupPresenter() {
+            const roomId = generateShortID();
+            if (peer) { try { peer.destroy(); } catch(e){} }
+            peer = new Peer(roomId, peerConfig); 
+            
+            peer.on('open', (id) => {
+                logDebug(`Studio Created. ID: ${id}`);
+                document.getElementById('room-id').innerText = id;
+                const joinUrl = `${window.location.origin}${window.location.pathname}?room=${id}`;
+                new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
+                
+                // 啟動講者端心跳包機制 (Heartbeat)
+                startHeartbeat();
+            });
+
+            peer.on('connection', (conn) => {
+                logDebug(`Viewer Data connection initiated: ${conn.peer}`);
+                cleanupViewer(conn.peer);
+
+                const handleConnectionOpen = () => {
+                    logDebug(`Viewer ${conn.peer} data channel OPEN.`);
+                    connectedViewers.set(conn.peer, { data: conn, lastPing: Date.now() });
+                    updateViewerCount();
+                };
+
+                if (conn.open) handleConnectionOpen(); else conn.on('open', handleConnectionOpen);
+
+                conn.on('data', (data) => {
+                    if (data.type === 'PONG') {
+                        // 收到心跳回覆，更新最後存活時間
+                        if (connectedViewers.has(conn.peer)) {
+                            connectedViewers.get(conn.peer).lastPing = Date.now();
+                        }
+                    } else if (data.type === 'VIEWER_READY') {
+                        logDebug(`Viewer ${conn.peer} is ready for stream.`);
+                        if (localStream) callViewer(conn.peer);
+                    }
+                });
+
+                conn.on('close', () => { logDebug(`Viewer ${conn.peer} formally closed connection.`); cleanupViewer(conn.peer); });
+                conn.on('error', (err) => { logDebug(`Data Channel Error (${conn.peer}): ${err.message}`, true); cleanupViewer(conn.peer); });
+            });
+
+            peer.on('error', (err) => {
+                // 過濾掉幽靈重連導致的 "peer-unavailable" 錯誤，不讓它變紅字
+                if (err.type === 'peer-unavailable') {
+                    logDebug(`Note: A peer disconnected abruptly (peer-unavailable). Cleaned up automatically.`, false, true);
+                } else {
+                    logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
+                }
+                if (err.type === 'unavailable-id') setupPresenter();
+            });
+        }
+
+        // 心跳包偵測機制
+        function startHeartbeat() {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                const now = Date.now();
+                connectedViewers.forEach((viewer, peerId) => {
+                    // 如果超過 12 秒沒收到觀眾的 PONG，代表對方已經直接關閉網頁/掉線
+                    if (now - viewer.lastPing > 12000) {
+                        logDebug(`Viewer ${peerId} timed out (No Heartbeat). Removing them.`);
+                        cleanupViewer(peerId);
+                    } else {
+                        // 發送心跳 Ping
+                        try { viewer.data.send({ type: 'PING' }); } catch(e){}
+                    }
+                });
+            }, 3000);
+        }
+
+        function cleanupViewer(peerId) {
+            clearTimeout(reconnectTimers.get(peerId));
+            if (connectedViewers.has(peerId)) {
+                try { connectedViewers.get(peerId).data.close(); } catch(e){}
+                connectedViewers.delete(peerId);
+            }
+            if (activeCalls.has(peerId)) {
+                try { activeCalls.get(peerId).close(); } catch(e){}
+                activeCalls.delete(peerId);
+            }
+            updateViewerCount();
+        }
+
+        function updateViewerCount() { document.getElementById('viewer-count').innerText = connectedViewers.size; }
+
+        function callViewer(peerId) {
+            if (!localStream) return;
+            if (activeCalls.has(peerId)) return;
+
+            try {
+                logDebug(`Dialing viewer: ${peerId}`);
+                const call = peer.call(peerId, localStream);
+                
+                if (call) {
+                    activeCalls.set(peerId, call);
+                    
+                    if (call.peerConnection) {
+                        call.peerConnection.addEventListener('connectionstatechange', () => {
+                            const state = call.peerConnection.connectionState;
+                            logDebug(`[${peerId}] WebRTC Media State -> ${state.toUpperCase()}`);
+                            
+                            if (state === 'disconnected' || state === 'failed') {
+                                logDebug(`[${peerId}] Media dropped! Checking Heartbeat before reconnect...`, false, true);
+                                activeCalls.delete(peerId);
+                                try { call.close(); } catch(e){}
+                                
+                                clearTimeout(reconnectTimers.get(peerId));
+                                reconnectTimers.set(peerId, setTimeout(() => {
+                                    // 確保觀眾的資料通道還活著 (表示沒重整頁面)，才進行自動重連
+                                    if (connectedViewers.has(peerId) && localStream) {
+                                        logDebug(`[${peerId}] Heartbeat is alive. Executing auto-reconnect.`);
+                                        callViewer(peerId);
+                                    } else {
+                                        logDebug(`[${peerId}] Viewer is gone. Aborting auto-reconnect.`);
+                                    }
+                                }, 3000));
+                            }
+                        });
+                    }
+                    
+                    call.on('close', () => { activeCalls.delete(peerId); });
+                    call.on('error', (err) => { logDebug(`Media Error [${peerId}]: ${err.message}`, true); activeCalls.delete(peerId); });
+                }
+            } catch (err) {
+                logDebug(`Failed to construct call to ${peerId}: ${err.message}`, true);
+            }
+        }
+
+        async function startScreenShare() {
+            try {
+                localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
+                    audio: false 
+                });
+                
+                logDebug("Display Media Acquired!");
+                document.getElementById('local-video').srcObject = localStream;
+                document.querySelector('.preview-placeholder').style.display = 'none';
+
+                const btnShare = document.getElementById('btn-share');
+                btnShare.innerText = "Sharing... Click to Change";
+                btnShare.style.background = "#6B7A75"; 
+                
+                localStream.getVideoTracks()[0].onended = () => {
+                    logDebug("Screen sharing stopped.");
+                    btnShare.innerText = "Start Screen Share";
+                    btnShare.style.background = "var(--morandi-primary)";
+                    document.getElementById('local-video').srcObject = null;
+                    document.querySelector('.preview-placeholder').style.display = 'block';
+                    
+                    connectedViewers.forEach(v => { try { v.data.send({ type: 'STOP_SHARE' }); } catch(e){} });
+                    activeCalls.forEach(c => { try { c.close(); } catch(e){} });
+                    activeCalls.clear();
+                    localStream = null;
+                };
+
+                connectedViewers.forEach((viewer, peerId) => {
+                    try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
+                    callViewer(peerId);
+                });
+
+            } catch (err) {
+                logDebug(`Screen Share Error: ${err.message}`, true);
             }
         }
 
@@ -192,304 +358,102 @@
             return id;
         }
 
-        /* ==================== 講者端邏輯 (Presenter) ==================== */
-        async function setupPresenter() {
-            currentRoomId = generateShortID();
-            document.getElementById('room-id').innerText = currentRoomId;
-            logDebug(`Studio room created. Room ID: ${currentRoomId}`);
+        /* ================= 觀眾端邏輯 ================= */
+        function joinSession() {
+            const hostId = document.getElementById('join-id').value.trim().toUpperCase();
+            if (!hostId) return;
 
-            const joinUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
-            const qrcodeEl = document.getElementById("qrcode");
-            qrcodeEl.innerHTML = "";
-            new QRCode(qrcodeEl, { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
+            logDebug(`Connecting to Host: ${hostId}`);
+            switchView('viewer-player');
+            const loadingMsg = document.getElementById('loading-msg');
+            loadingMsg.innerText = "Initializing network...";
 
-            try {
-                // 寫入初始資料，確保房間存在
-                await database.ref(`rooms/${currentRoomId}`).set({
-                    status: "active",
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
+            if (peer) { try { peer.destroy(); } catch(e){} }
+            peer = new Peer(undefined, peerConfig);
+
+            peer.on('call', (call) => {
+                logDebug(`Incoming video stream. Answering...`);
+                call.answer(); 
+                
+                call.on('stream', (remoteStream) => {
+                    logDebug("Stream track received.");
+                    document.getElementById('player-loading').style.display = 'none';
+                    
+                    const videoEl = document.getElementById('remote-video');
+                    if (videoEl.srcObject !== remoteStream) {
+                        videoEl.srcObject = remoteStream;
+                    }
+                    
+                    // 為了防止手機黑屏等待太久，提早顯示手動播放按鈕
+                    let playAttempted = false;
+
+                    videoEl.onloadedmetadata = () => {
+                        logDebug("Metadata loaded. Forcing playback...");
+                        playAttempted = true;
+                        videoEl.play().then(() => {
+                            logDebug("Autoplay succeeded!");
+                            document.getElementById('manual-play-btn').style.display = 'none';
+                        }).catch(e => {
+                            logDebug(`Browser Blocked Autoplay. Require tap.`, true);
+                            document.getElementById('manual-play-btn').style.display = 'block';
+                        });
+                    };
+
+                    // 如果元數據遲遲無法載入，3秒後也顯示出強制播放按鈕給使用者
+                    setTimeout(() => {
+                        if (!playAttempted) {
+                            logDebug("Video stall detected. Showing manual play button.", false, true);
+                            document.getElementById('manual-play-btn').style.display = 'block';
+                        }
+                    }, 3000);
                 });
 
-                // 設定斷線自動清除節點，避免舊房間殘留
-                database.ref(`rooms/${currentRoomId}`).onDisconnect().remove();
-                logDebug("Database room registered successfully.");
-            } catch (err) {
-                logDebug(`Failed to initialize room in database: ${err.message}`, true);
-            }
-
-            // 監聽新觀眾的加入
-            database.ref(`rooms/${currentRoomId}/viewers`).on('child_added', (snapshot) => {
-                const viewerId = snapshot.key;
-                logDebug(`New viewer candidate registered: ${viewerId}`);
-                if (localStream) {
-                    initiatePeerConnection(viewerId);
-                }
+                call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); });
             });
-        }
 
-        async function startScreenShare() {
-            try {
-                localStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
-                    audio: false
-                });
-
-                logDebug("Display media captured successfully.");
-                document.getElementById('local-video').srcObject = localStream;
-                document.querySelector('.preview-placeholder').style.display = 'none';
-
-                const btnShare = document.getElementById('btn-share');
-                btnShare.innerText = "Broadcasting Stream...";
-                btnShare.style.background = "#6B7A75";
-
-                localStream.getVideoTracks()[0].onended = () => {
-                    location.reload();
+            peer.on('open', (viewerId) => {
+                logDebug(`Viewer ID: ${viewerId}`);
+                loadingMsg.innerText = `Contacting Studio...`;
+                
+                const conn = peer.connect(hostId, { reliable: true });
+                
+                const handleConnOpen = () => {
+                    logDebug("Data Channel connected.");
+                    loadingMsg.innerText = "Connected! Waiting for host to share screen...";
+                    conn.send({ type: 'VIEWER_READY' });
                 };
 
-                // 將串流發送給所有已在房內等待的觀眾
-                database.ref(`rooms/${currentRoomId}/viewers`).once('value', (snapshot) => {
-                    const viewers = snapshot.val();
-                    if (viewers) {
-                        Object.keys(viewers).forEach(viewerId => {
-                            initiatePeerConnection(viewerId);
-                        });
+                if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
+
+                conn.on('data', (data) => {
+                    // 自動回覆心跳包
+                    if (data.type === 'PING') {
+                        conn.send({ type: 'PONG' });
+                    }
+                    else if (data.type === 'STOP_SHARE') { 
+                        logDebug('Host paused screen share.', false, true); 
+                        document.getElementById('player-loading').style.display = 'block';
+                        loadingMsg.innerText = "Presenter paused sharing. Waiting...";
+                        document.getElementById('remote-video').srcObject = null;
+                        document.getElementById('manual-play-btn').style.display = 'none';
                     }
                 });
 
-            } catch (err) {
-                logDebug(`Screen Share failed: ${err.message}`, true);
-            }
-        }
-
-        async function initiatePeerConnection(viewerId) {
-            if (peerConnections.has(viewerId)) return;
-
-            logDebug(`[Host] Creating connection for viewer: ${viewerId}`);
-            const pc = new RTCPeerConnection(rtcConfig);
-            peerConnections.set(viewerId, pc);
-
-            const remoteIceQueue = [];
-            let isRemoteDescSet = false;
-
-            // 綁定影像軌道
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-            // 當產生本地 ICE 候選時推入 Firebase
-            pc.onicecandidate = (event) => {
-                if (event.candidate && peerConnections.has(viewerId)) {
-                    database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/hostCandidates`).push(event.candidate.toJSON());
-                }
-            };
-
-            pc.onconnectionstatechange = () => {
-                logDebug(`[Host] Viewer ${viewerId} state: ${pc.connectionState}`);
-                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                    cleanupViewerConnection(viewerId);
-                }
-            };
-
-            try {
-                // 清空快取以防止舊資料干擾
-                await database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/answer`).remove();
-                await database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/hostCandidates`).remove();
-
-                // 產生 Offer 
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                await database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/offer`).set({
-                    sdp: offer.sdp,
-                    type: offer.type
-                });
-
-                // 監聽觀眾傳回的 SDP Answer
-                database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/answer`).on('value', async (snapshot) => {
-                    const answer = snapshot.val();
-                    if (answer && !isRemoteDescSet) {
-                        logDebug(`[Host] Answer received from: ${viewerId}`);
-                        try {
-                            await pc.setRemoteDescription(new RTCSessionDescription(answer));
-                            isRemoteDescSet = true;
-                            
-                            // 釋放暫存的 ICE
-                            while (remoteIceQueue.length > 0) {
-                                const cand = remoteIceQueue.shift();
-                                pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
-                            }
-                        } catch (err) {
-                            logDebug(`[Host] Set Remote Description Error: ${err.message}`, true);
-                        }
-                    }
-                });
-
-                // 接收觀眾端 ICE
-                database.ref(`rooms/${currentRoomId}/viewers/${viewerId}/viewerCandidates`).on('child_added', (snapshot) => {
-                    const candidate = snapshot.val();
-                    if (candidate) {
-                        if (isRemoteDescSet) {
-                            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-                        } else {
-                            remoteIceQueue.push(candidate);
-                        }
-                    }
-                });
-
-            } catch (e) {
-                logDebug(`[Host] Negotiation fail: ${e.message}`, true);
-            }
-        }
-
-        function cleanupViewerConnection(viewerId) {
-            const pc = peerConnections.get(viewerId);
-            if (pc) {
-                pc.close();
-                peerConnections.delete(viewerId);
-            }
-            database.ref(`rooms/${currentRoomId}/viewers/${viewerId}`).remove();
-        }
-
-        /* ==================== 觀眾端邏輯 (Viewer) ==================== */
-        async function joinSession() {
-            const roomId = document.getElementById('join-id').value.trim().toUpperCase();
-            if (!roomId) return;
-
-            logDebug(`[Viewer] Verifying room: ${roomId}`);
-
-            // 檢查房間節點是否存在
-            const roomCheck = await database.ref(`rooms/${roomId}`).once('value');
-            if (!roomCheck.exists()) {
-                alert("Room code does not exist. Please double check.");
-                return;
-            }
-
-            switchView('viewer-player');
-
-            const videoEl = document.getElementById('remote-video');
-            const loadingMsg = document.getElementById('loading-msg');
-
-            // 預備並綁定 MediaStream
-            const remoteStream = new MediaStream();
-            videoEl.srcObject = remoteStream;
-
-            // 預先解鎖播放
-            try {
-                await videoEl.play();
-                videoEl.pause();
-                logDebug("[Viewer] Video element pre-unlocked.");
-            } catch (e) {
-                logDebug("[Viewer] Video warm-up triggered.");
-            }
-
-            const viewerId = generateShortID();
-            const pc = new RTCPeerConnection(rtcConfig);
-
-            const remoteIceQueue = [];
-            let isRemoteDescSet = false;
-
-            // 將接收到的 track 直接添加至先前綁定的遠端 Stream 中
-            pc.ontrack = (event) => {
-                logDebug(`[Viewer] Stream Track event received: ${event.track.kind}`);
-                document.getElementById('player-loading').style.display = 'none';
-                
-                remoteStream.addTrack(event.track);
-
-                videoEl.play().then(() => {
-                    logDebug("[Viewer] Stream is playing smoothly.");
-                    document.getElementById('manual-play-btn').style.display = 'none';
-                }).catch(err => {
-                    logDebug("[Viewer] Play prevented. Manual unlock UI shown.", true);
-                    document.getElementById('manual-play-btn').style.display = 'block';
-                });
-            };
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    database.ref(`rooms/${roomId}/viewers/${viewerId}/viewerCandidates`).push(event.candidate.toJSON());
-                }
-            };
-
-            pc.onconnectionstatechange = () => {
-                logDebug(`[Viewer] Connection state: ${pc.connectionState}`);
-            };
-
-            // 清空該 Viewer 歷史快取
-            const viewerRef = database.ref(`rooms/${roomId}/viewers/${viewerId}`);
-            await viewerRef.remove();
-
-            // 設定斷線自動清除節點
-            await viewerRef.onDisconnect().remove();
-
-            // 在資料庫中註冊連線
-            await viewerRef.child('join').set(true);
-            loadingMsg.innerText = "Waiting for host offer...";
-
-            // 修正點：利用 isRemoteDescSet 來防止非預期狀態下的 Offer 重複或錯誤解鎖
-            viewerRef.child('offer').on('value', async (snapshot) => {
-                const offer = snapshot.val();
-                if (offer && !isRemoteDescSet) {
-                    logDebug("[Viewer] Offer received. Executing handshake...");
-                    try {
-                        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-                        isRemoteDescSet = true;
-
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-
-                        await viewerRef.child('answer').set({
-                            sdp: answer.sdp,
-                            type: answer.type
-                        });
-                        logDebug("[Viewer] Answer generated and applied.");
-
-                        // 釋放暫存的 Host ICE 候選者
-                        while (remoteIceQueue.length > 0) {
-                            const cand = remoteIceQueue.shift();
-                            pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
-                        }
-                    } catch (err) {
-                        logDebug(`[Viewer] Handshake Exception: ${err.message}`, true);
-                    }
-                }
+                conn.on('close', () => { alert('Session closed.'); location.reload(); });
             });
 
-            // 接收 Host 端 ICE Candidates 
-            viewerRef.child('hostCandidates').on('child_added', (snapshot) => {
-                const candidate = snapshot.val();
-                if (candidate) {
-                    if (isRemoteDescSet) {
-                        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
-                    } else {
-                        remoteIceQueue.push(candidate);
-                    }
-                }
-            });
-
-            // 監聽連線斷開事件
-            database.ref(`rooms/${roomId}`).on('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    alert("Presentation ended.");
-                    location.reload();
-                }
-            });
+            peer.on('error', (err) => { logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); });
         }
 
         function forcePlay() {
-            logDebug("Force playback requested.");
+            logDebug("Manual play pressed.");
             const videoEl = document.getElementById('remote-video');
             videoEl.play().then(() => {
                 document.getElementById('manual-play-btn').style.display = 'none';
             }).catch(e => {
-                logDebug("Force play failed: " + e.message, true);
+                logDebug(`Manual play failed: ${e.message}`, true);
             });
         }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const params = new URLSearchParams(window.location.search);
-            const roomParam = params.get('room');
-            if (roomParam) {
-                initRole('viewer');
-                document.getElementById('join-id').value = roomParam;
-            }
-        });
     </script>
 </body>
 </html>
