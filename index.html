@@ -1,357 +1,627 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncCast - Premium Cinema Studio</title>
+    <title>SyncCast - Screen Sharing Studio</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
         :root {
-            --studio-black: #0A0A0B;
-            --deep-slate: #161618;
-            --accent-gold: #E6B325;
-            --film-red: #E53935;
-            --glass: rgba(255, 255, 255, 0.05);
-            --font-main: 'Montserrat', sans-serif;
-            --font-code: 'Space Mono', monospace;
+            --morandi-bg: #EAE5DF; --morandi-surface: #F5F3EF; --morandi-primary: #7A8485;
+            --morandi-primary-hover: #606A6B; --morandi-text: #2C302E; --morandi-muted: #8E8A85;
+            --morandi-border: #D1CEC5; --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
-            background-color: var(--studio-black);
-            color: #FFFFFF;
-            font-family: var(--font-main);
-            display: flex; align-items: center; justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-            background-image: radial-gradient(circle at center, #1c1c1f 0%, #0a0a0b 100%);
+            background-color: var(--morandi-bg); color: var(--morandi-text); font-family: var(--font-sans);
+            display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px 16px; 
+            -webkit-font-smoothing: antialiased;
         }
-
-        /* 精細膠片元素：頂部與底部裝飾條 */
-        .film-header, .film-footer {
-            position: fixed; left: 0; width: 100%; height: 40px;
-            background-image: radial-gradient(circle, #222 30%, transparent 35%);
-            background-size: 40px 40px;
-            opacity: 0.3; z-index: 0;
-        }
-        .film-header { top: 0; }
-        .film-footer { bottom: 0; }
-
+        body::before { content: "VOL. 1"; position: absolute; top: 24px; left: 24px; font-size: 11px; letter-spacing: 4px; color: var(--morandi-muted); }
         .container {
-            position: relative;
-            background: var(--deep-slate);
-            width: 90%; max-width: 450px;
-            padding: 40px;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
-            text-align: center;
-            z-index: 10;
+            background: var(--morandi-surface); border: 1px solid var(--morandi-border); padding: 32px 24px; width: 100%; max-width: 400px;
+            text-align: center; box-shadow: 10px 10px 40px rgba(0,0,0,0.04); position: relative; transition: opacity 0.4s ease, transform 0.4s ease;
         }
-
-        h1 {
-            font-weight: 800; font-size: 38px; letter-spacing: 4px;
-            color: #FFF; margin-bottom: 8px; text-transform: uppercase;
-        }
-
-        .subtitle {
-            font-size: 11px; color: var(--accent-gold); letter-spacing: 3px;
-            text-transform: uppercase; margin-bottom: 40px; opacity: 0.8;
-        }
-
-        /* 房號顯示區 - 放大加強版 */
-        .token-display-box {
-            background: #000;
-            padding: 24px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border: 1px inset rgba(255,255,255,0.05);
-        }
-        .label-small { font-size: 10px; color: #555; margin-bottom: 10px; letter-spacing: 1px; }
-        .token-text {
-            font-family: var(--font-code);
-            font-size: 52px;
-            font-weight: 700;
-            color: var(--accent-gold);
-            letter-spacing: 8px;
-            text-shadow: 0 0 20px rgba(230, 179, 37, 0.3);
-        }
-
-        /* 影片預覽框 - 專業監視器感 */
-        .monitor-wrapper {
-            position: relative;
-            width: 100%; aspect-ratio: 16/9;
-            background: #000; border: 2px solid #222;
-            margin-bottom: 24px; border-radius: 4px; overflow: hidden;
-        }
-        .monitor-tag {
-            position: absolute; top: 8px; left: 8px;
-            font-size: 9px; background: var(--film-red);
-            padding: 2px 6px; border-radius: 2px; font-weight: bold; z-index: 5;
-        }
-        video { width: 100%; height: 100%; object-fit: contain; }
-
-        /* 按鈕設計 */
+        @media (min-width: 480px) { .container { padding: 48px 40px; } }
+        .hidden { display: none !important; opacity: 0; pointer-events: none; transform: translateY(10px); }
+        h1 { font-family: var(--font-serif); font-size: 32px; font-weight: 400; margin-bottom: 12px; font-style: italic; }
+        p.subtitle { color: var(--morandi-muted); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 32px; position: relative; }
+        p.subtitle::after { content: ""; display: block; width: 40px; height: 1px; background: var(--morandi-border); margin: 16px auto 0; }
         button {
-            width: 100%; padding: 18px; margin-bottom: 12px;
-            background: var(--glass); border: 1px solid rgba(255,255,255,0.1);
-            color: #FFF; font-family: var(--font-main); font-weight: 600;
-            font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
-            cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%; padding: 16px; margin-bottom: 16px; font-size: 14px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; 
+            border: 1px solid var(--morandi-border); background: transparent; color: var(--morandi-text); cursor: pointer; transition: all 0.3s ease;
         }
-        button:hover { background: #FFF; color: #000; transform: translateY(-2px); }
-        button.primary { background: var(--accent-gold); color: #000; border: none; }
-        button.primary:hover { background: #FFC82C; box-shadow: 0 10px 20px rgba(230, 179, 37, 0.2); }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
-
+        button:hover { background: rgba(0,0,0,0.03); }
+        button.primary { background: var(--morandi-primary); color: #FFF; border: none; }
+        button.primary:hover { background: var(--morandi-primary-hover); box-shadow: 0 8px 20px rgba(122,132,133,0.3); transform: translateY(-1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
         input {
-            width: 100%; padding: 20px; background: rgba(0,0,0,0.3);
-            border: none; border-bottom: 2px solid #333;
-            color: #FFF; font-family: var(--font-code); font-size: 32px;
-            text-align: center; outline: none; margin-bottom: 30px; transition: 0.3s;
+            width: 100%; padding: 16px 0; margin-bottom: 32px; background: transparent; border: none; border-bottom: 1px solid var(--morandi-border); 
+            color: var(--morandi-text); font-size: 24px; font-family: var(--font-serif); text-align: center; outline: none; transition: border-color 0.3s; text-transform: uppercase;
         }
-        input:focus { border-bottom-color: var(--accent-gold); }
-
-        /* 狀態指示燈 */
-        .status-bar { font-size: 11px; color: #666; margin-bottom: 20px; }
-        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-        .dot-rec { background: var(--film-red); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-        #qrcode { 
-            margin: 20px auto 0; padding: 10px; background: #FFF; 
-            width: fit-content; border-radius: 4px; 
+        input::placeholder { color: #D1CEC5; font-family: var(--font-sans); font-size: 14px; letter-spacing: 2px; }
+        input:focus { border-bottom-color: var(--morandi-primary); }
+        .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
+        .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; }
+        .preview-wrapper { width: 100%; aspect-ratio: 16/9; background: #E5E2DA; border: 1px solid var(--morandi-border); margin-bottom: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; }
+        .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
+        #qrcode { display: flex; justify-content: center; margin: 24px auto 0; width: 100%; max-width: 140px; }
+        #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 8px solid #FFF; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .status-text { font-size: 13px; color: var(--morandi-primary); display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; }
+        .status-dot { width: 6px; height: 6px; background: var(--morandi-primary); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        
+        #viewer-player { position: fixed; inset: 0; background: #1A1A1A; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; }
+        .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
+        #manual-play-btn { position: absolute; z-index: 1000; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px; }
+        
+        #btn-fullscreen { 
+            position: absolute; top: 16px; right: 16px; z-index: 1001; 
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); 
+            color: #FFF; backdrop-filter: blur(4px); padding: 8px 16px; font-size: 12px; 
+            cursor: pointer; border-radius: 4px; display: none; width: auto; margin: 0; transition: background 0.3s;
         }
+        #btn-fullscreen:hover { background: rgba(255,255,255,0.25); }
 
-        .hidden { display: none !important; }
+        #btn-exit { 
+            position: absolute; top: 16px; left: 16px; z-index: 1001; 
+            background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.4); 
+            color: #FFF; backdrop-filter: blur(4px); padding: 8px 16px; font-size: 12px; 
+            cursor: pointer; border-radius: 4px; display: none; width: auto; margin: 0; transition: background 0.3s;
+        }
+        #btn-exit:hover { background: rgba(255,100,100,0.35); }
 
-        /* 觀眾播放器 - 全螢幕極簡 */
-        #viewer-player {
-            position: fixed; inset: 0; background: #000;
-            z-index: 1000; display: flex; align-items: center; justify-content: center;
-        }
-        .player-controls {
-            position: absolute; top: 20px; width: 90%;
-            display: flex; justify-content: space-between; z-index: 1001;
-        }
-        .mini-btn { width: auto; padding: 8px 16px; font-size: 10px; background: rgba(0,0,0,0.6); }
-
-        #manual-play-overlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.8);
-            display: flex; align-items: center; justify-content: center; z-index: 1002;
-        }
+        #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(15, 15, 15, 0.95); color: #55ff55; font-family: 'Courier New', Courier, monospace; font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 10px; box-sizing: border-box; border-top: 1px solid #333; }
+        #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.5; padding-right: 5px; }
+        #btn-debug { position: fixed; bottom: 12px; right: 12px; z-index: 99998; background: rgba(44, 48, 46, 0.9); color: #fff; border: 1px solid #7A8485; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: auto; margin: 0; }
     </style>
 </head>
 <body>
-
-    <div class="film-header"></div>
-    <div class="film-footer"></div>
-
     <div id="view-home" class="container">
         <h1>SyncCast</h1>
         <p class="subtitle">Screen Sharing Studio</p>
-        <button class="primary" onclick="initRole('presenter')">Start Presenting</button>
-        <button onclick="initRole('viewer')">Join Session</button>
+        <button id="btn-start-presenter" class="primary" onclick="initRole('presenter')">Start Presenting</button>
+        <button id="btn-start-viewer" onclick="initRole('viewer')">Join Session</button>
     </div>
 
     <div id="view-presenter" class="container hidden">
         <h1>Studio</h1>
-        <p class="subtitle">Broadcast Control</p>
-        
-        <div class="token-display-box">
-            <div class="label-small">ACCESS CODE</div>
-            <div id="room-id" class="token-text">----</div>
-        </div>
-
-        <div class="monitor-wrapper">
-            <div class="monitor-tag">LIVE PREVIEW</div>
+        <p class="subtitle">Broadcast Dashboard</p>
+        <div class="info-label">Room Access Code</div>
+        <div id="room-id" class="code-display">...</div>
+        <div class="preview-wrapper">
+            <span class="preview-placeholder">Live Preview</span>
             <video id="local-video" autoplay playsinline muted></video>
         </div>
-
-        <div class="status-bar">
-            <span class="dot dot-rec"></span>CONNECTED VIEWERS: <span id="viewer-count" style="color:#FFF">0</span>
+        <div class="status-text">
+            <span class="status-dot"></span>Connected Viewers: <span id="viewer-count" style="margin-left:4px; font-weight:600;">0</span>
         </div>
-
         <button id="btn-share" class="primary" onclick="startScreenShare()">Start Screen Share</button>
         <div id="qrcode"></div>
     </div>
 
     <div id="view-viewer" class="container hidden">
-        <h1>Connect</h1>
-        <p class="subtitle">Enter Studio Token</p>
-        <input type="text" id="join-id" placeholder="0000" maxlength="4" autocomplete="off">
-        <button class="primary" onclick="joinSession()">Establish Connection</button>
-        <button style="border:none; color:#555" onclick="location.reload()">Return</button>
+        <h1>Join</h1>
+        <p class="subtitle" id="viewer-subtitle">Enter Access Code</p>
+        <input type="text" id="join-id" placeholder="e.g. 8A9X" autocomplete="off" maxlength="4">
+        <button class="primary" onclick="joinSession()">Connect</button>
+        <button onclick="window.location.href='https://kenchan20141.github.io/project/'">Back</button>
     </div>
 
     <div id="viewer-player" class="hidden">
-        <div class="player-controls">
-            <button class="mini-btn" onclick="confirmExit()">✖ EXIT</button>
-            <button class="mini-btn" onclick="toggleFullScreen()">⛶ FULLSCREEN</button>
-        </div>
+        <button id="btn-exit" onclick="confirmExit()">⍈ Exit / 退出</button>
+        <button id="btn-fullscreen" onclick="toggleFullScreen()">⛶ Fullscreen</button>
         
-        <div id="player-loading" style="text-align:center">
-            <div class="dot dot-rec"></div>
-            <p style="font-size: 10px; letter-spacing: 2px; margin-top:10px">SYNCING SIGNAL...</p>
+        <div id="player-loading" class="loading-box">
+            <div class="loading-text" id="loading-msg">Connecting to Studio...</div>
         </div>
-
-        <video id="remote-video" autoplay playsinline></video>
-
-        <div id="manual-play-overlay" class="hidden">
-            <button class="primary" style="width:auto; padding:20px 40px" onclick="forcePlay()">▶ START STREAM</button>
-        </div>
+        <video id="remote-video" autoplay playsinline preload="auto"></video>
+        <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream & Audio</button>
     </div>
 
+    <div id="debug-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #333;">
+            <span style="font-weight:bold; color:#fff;">Diagnostics & Network Logs</span>
+            <button onclick="toggleDebug()" style="padding: 2px 8px; font-size: 10px; width: auto; margin: 0; border: 1px solid #fff; background: transparent; color: #fff;">Close</button>
+        </div>
+        <div id="debug-content"></div>
+    </div>
+    <button id="btn-debug" onclick="toggleDebug()">LOG</button>
+
     <script>
-        const ID_PREFIX = "sync-cinema-";
+        const ID_PREFIX = "sync-cast-room-"; 
+
+        let peerConfig = { 
+            debug: 2, 
+            config: { 
+                iceServers: [],
+                iceCandidatePoolSize: 10
+            }
+        };
+        
         let peer = null;
         let localStream = null;
-        let connectedViewers = new Map();
-        let activeCalls = new Map();
+        let connectedViewers = new Map(); 
+        let activeCalls = new Map();      
+        let reconnectTimers = new Map();  
+        let heartbeatTimer = null;
+
+        function logDebug(msg, isError = false, isWarning = false) {
+            const panel = document.getElementById('debug-panel');
+            const content = document.getElementById('debug-content');
+            
+            if ((isError || isWarning) && (panel.style.display === 'none' || panel.style.display === '')) {
+                panel.style.display = 'flex';
+            }
+
+            const line = document.createElement('div');
+            if (isError) line.style.color = '#ff5555';
+            else if (isWarning) line.style.color = '#ffaa00';
+            else line.style.color = '#55ff55';
+            
+            line.style.marginBottom = '6px';
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            line.innerText = `[${time}] ${msg}`;
+            
+            content.appendChild(line);
+            content.scrollTop = content.scrollHeight;
+            
+            if (isError) console.error(msg); 
+            else if (isWarning) console.warn(msg);
+            else console.log(msg);
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debug-panel');
+            panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+        }
 
         function switchView(viewId) {
             document.querySelectorAll('.container, #viewer-player').forEach(el => el.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
         }
 
-        async function getIceServers() {
-            return [
+        async function fetchIceServers() {
+            logDebug("Loading ExpressTURN servers...");
+            
+            const iceServers = [
                 { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
                 {
-                    urls: 'turn:free.expressturn.com:3478',
+                    urls: [
+                        "turn:free.expressturn.com:3478",
+                        "turn:free.expressturn.com:3478?transport=udp",
+                        "turn:free.expressturn.com:3478?transport=tcp"
+                    ],
                     username: "000000002095629902",
                     credential: "G/cOmHLAPAAts04J1oj3AdBl6nE="
                 }
             ];
+            
+            logDebug("Successfully loaded ExpressTURN credentials.");
+            return iceServers;
         }
 
-        // 初始化
-        async function initRole(role) {
-            const ice = await getIceServers();
-            if (role === 'presenter') {
-                switchView('view-presenter');
-                setupPresenter(ice);
-            } else {
-                switchView('view-viewer');
+        window.onload = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomFromUrl = urlParams.get('room');
+            
+            if (roomFromUrl) {
+                document.getElementById('join-id').value = roomFromUrl;
+                await initRole('viewer', true); 
             }
         }
 
-        // 講者邏輯
-        function setupPresenter(ice) {
-            const displayId = Math.random().toString(36).substring(2,6).toUpperCase();
-            peer = new Peer(ID_PREFIX + displayId, { config: { iceServers: ice } });
+        async function initRole(role, autoJoin = false) {
+            const btnPresent = document.getElementById('btn-start-presenter');
+            const btnView = document.getElementById('btn-start-viewer');
+            if(btnPresent) btnPresent.disabled = true;
+            if(btnView) btnView.disabled = true;
 
+            peerConfig.config.iceServers = await fetchIceServers();
+
+            if (role === 'presenter') {
+                logDebug("Booting Studio Mode...");
+                switchView('view-presenter');
+                setupPresenter();
+            } else {
+                logDebug("Booting Viewer Mode...");
+                switchView('view-viewer');
+                if(btnPresent) btnPresent.disabled = false;
+                if(btnView) btnView.disabled = false;
+                
+                if(autoJoin) joinSession();
+            }
+        }
+
+        /* ================= 講者端邏輯 ================= */
+        function setupPresenter() {
+            const displayId = generateShortID();
+            const actualPeerId = ID_PREFIX + displayId; 
+            
+            if (peer) { try { peer.destroy(); } catch(e){} }
+            peer = new Peer(actualPeerId, peerConfig); 
+            
             peer.on('open', (id) => {
+                logDebug(`Studio Created. Underlying ID: ${id}`);
                 document.getElementById('room-id').innerText = displayId;
-                const url = `${window.location.origin}${window.location.pathname}?room=${displayId}`;
-                document.getElementById("qrcode").innerHTML = "";
-                new QRCode(document.getElementById("qrcode"), { text: url, width: 120, height: 120 });
+                
+                const joinUrl = `${window.location.origin}${window.location.pathname}?room=${displayId}`;
+                document.getElementById("qrcode").innerHTML = ""; 
+                new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
+                
+                startHeartbeat();
             });
 
             peer.on('connection', (conn) => {
-                conn.on('open', () => {
-                    connectedViewers.set(conn.peer, conn);
+                logDebug(`Viewer connection initiated: ${conn.peer}`);
+                cleanupViewer(conn.peer);
+
+                const handleConnectionOpen = () => {
+                    logDebug(`Viewer ${conn.peer} data channel OPEN.`);
+                    connectedViewers.set(conn.peer, { data: conn, lastPing: Date.now() });
                     updateViewerCount();
-                    if(localStream) callViewer(conn.peer);
+                };
+
+                if (conn.open) handleConnectionOpen(); else conn.on('open', handleConnectionOpen);
+
+                conn.on('data', (data) => {
+                    if (data.type === 'PONG') {
+                        if (connectedViewers.has(conn.peer)) {
+                            connectedViewers.get(conn.peer).lastPing = Date.now();
+                        }
+                    } else if (data.type === 'VIEWER_READY') {
+                        logDebug(`Viewer ${conn.peer} is ready for stream.`);
+                        if (localStream) callViewer(conn.peer);
+                    }
                 });
-                conn.on('close', () => {
-                    connectedViewers.delete(conn.peer);
-                    updateViewerCount();
-                });
+
+                conn.on('close', () => { logDebug(`Viewer closed connection.`); cleanupViewer(conn.peer); });
+                conn.on('error', (err) => { logDebug(`Data Channel Error: ${err.message}`, true); cleanupViewer(conn.peer); });
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'peer-unavailable') {
+                    logDebug(`Note: A peer disconnected abruptly.`, false, true);
+                } else if (err.type === 'unavailable-id') {
+                    logDebug(`ID collision! Regenerating...`, true);
+                    setupPresenter();
+                } else {
+                    logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
+                }
             });
         }
 
-        function updateViewerCount() {
-            document.getElementById('viewer-count').innerText = connectedViewers.size;
+        function startHeartbeat() {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                const now = Date.now();
+                connectedViewers.forEach((viewer, peerId) => {
+                    if (now - viewer.lastPing > 15000) {
+                        logDebug(`Viewer timed out (No Heartbeat). Removing.`);
+                        cleanupViewer(peerId);
+                    } else {
+                        try { viewer.data.send({ type: 'PING' }); } catch(e){}
+                    }
+                });
+            }, 4000);
+        }
+
+        function cleanupViewer(peerId) {
+            clearTimeout(reconnectTimers.get(peerId));
+            if (connectedViewers.has(peerId)) {
+                try { connectedViewers.get(peerId).data.close(); } catch(e){}
+                connectedViewers.delete(peerId);
+            }
+            if (activeCalls.has(peerId)) {
+                try { activeCalls.get(peerId).close(); } catch(e){}
+                activeCalls.delete(peerId);
+            }
+            updateViewerCount();
+        }
+
+        function updateViewerCount() { document.getElementById('viewer-count').innerText = connectedViewers.size; }
+
+        function callViewer(peerId) {
+            if (!localStream || !peer) return;
+            if (activeCalls.has(peerId)) return;
+
+            try {
+                logDebug(`Dialing viewer...`);
+                const call = peer.call(peerId, localStream);
+                
+                if (call) {
+                    activeCalls.set(peerId, call);
+                    
+                    if (call.peerConnection) {
+                        call.peerConnection.addEventListener('connectionstatechange', () => {
+                            const state = call.peerConnection.connectionState;
+                            logDebug(`WebRTC Media State -> ${state.toUpperCase()}`);
+                            
+                            if (state === 'disconnected' || state === 'failed') {
+                                logDebug(`Media dropped! Checking reconnect...`, false, true);
+                                activeCalls.delete(peerId);
+                                try { call.close(); } catch(e){}
+                                
+                                clearTimeout(reconnectTimers.get(peerId));
+                                reconnectTimers.set(peerId, setTimeout(() => {
+                                    if (connectedViewers.has(peerId) && localStream) {
+                                        logDebug(`Executing auto-reconnect.`);
+                                        callViewer(peerId);
+                                    }
+                                }, 3000));
+                            }
+                        });
+                    }
+                    
+                    call.on('close', () => { activeCalls.delete(peerId); });
+                    call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); activeCalls.delete(peerId); });
+                }
+            } catch (err) {
+                logDebug(`Failed to construct call: ${err.message}`, true);
+            }
         }
 
         async function startScreenShare() {
             try {
-                localStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
-                    audio: true
+                const newStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
+                    audio: true 
                 });
-                document.getElementById('local-video').srcObject = localStream;
-                document.getElementById('btn-share').innerText = "LIVE NOW";
-                document.getElementById('btn-share').style.background = "#333";
+                
+                logDebug("Display Media Acquired (Audio enabled)!");
+                document.getElementById('local-video').srcObject = newStream;
+                document.querySelector('.preview-placeholder').style.display = 'none';
 
-                connectedViewers.forEach((conn, peerId) => callViewer(peerId));
+                const btnShare = document.getElementById('btn-share');
+                btnShare.innerText = "Sharing... Click to Change";
+                btnShare.style.background = "#6B7A75"; 
 
+                if (localStream) {
+                    const oldHasAudio = localStream.getAudioTracks().length > 0;
+                    const newHasAudio = newStream.getAudioTracks().length > 0;
+
+                    if (oldHasAudio === newHasAudio) {
+                        logDebug("Replacing existing tracks for seamless transition...");
+                        const newVideoTrack = newStream.getVideoTracks()[0];
+                        const newAudioTrack = newStream.getAudioTracks()[0];
+                        
+                        activeCalls.forEach((call, peerId) => {
+                            if (call.peerConnection) {
+                                const senders = call.peerConnection.getSenders();
+                                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                                const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+
+                                if (videoSender && newVideoTrack) {
+                                    videoSender.replaceTrack(newVideoTrack).catch(e => logDebug(`Video replace failed: ${e.message}`, true));
+                                }
+                                if (audioSender && newAudioTrack) {
+                                    audioSender.replaceTrack(newAudioTrack).catch(e => logDebug(`Audio replace failed: ${e.message}`, true));
+                                }
+                            }
+                        });
+                        localStream.getTracks().forEach(track => track.stop());
+                        localStream = newStream;
+                    } else {
+                        logDebug("Audio track changed. Re-establishing calls to viewers...");
+                        localStream.getTracks().forEach(track => track.stop());
+                        activeCalls.forEach(c => { try { c.close(); } catch(e){} });
+                        activeCalls.clear();
+                        
+                        localStream = newStream; 
+                        connectedViewers.forEach((viewer, peerId) => {
+                            callViewer(peerId);
+                        });
+                    }
+                } else {
+                    localStream = newStream; 
+                    connectedViewers.forEach((viewer, peerId) => {
+                        try { viewer.data.send({ type: 'START_SHARE' }); } catch(e){}
+                        callViewer(peerId);
+                    });
+                }
+                
                 localStream.getVideoTracks()[0].onended = () => {
-                    location.reload();
+                    logDebug("Screen sharing stopped by user.");
+                    btnShare.innerText = "Start Screen Share";
+                    btnShare.style.background = "var(--morandi-primary)";
+                    document.getElementById('local-video').srcObject = null;
+                    document.querySelector('.preview-placeholder').style.display = 'block';
+                    
+                    connectedViewers.forEach(v => { try { v.data.send({ type: 'STOP_SHARE' }); } catch(e){} });
+                    activeCalls.forEach(c => { try { c.close(); } catch(e){} });
+                    activeCalls.clear();
+                    localStream = null;
                 };
-            } catch (e) { console.error("Share failed:", e); }
+
+            } catch (err) {
+                logDebug(`Screen Share Error: ${err.message}`, true);
+            }
         }
 
-        function callViewer(peerId) {
-            if (!localStream) return;
-            const call = peer.call(peerId, localStream);
-            activeCalls.set(peerId, call);
+        function generateShortID() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let id = ''; for (let i = 0; i < 4; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+            return id;
         }
 
-        // 觀眾邏輯
+        /* ================= 觀眾端邏輯 ================= */
         function joinSession() {
-            const val = document.getElementById('join-id').value.toUpperCase();
-            if(val) startViewer(val);
-        }
+            const inputId = document.getElementById('join-id').value.trim().toUpperCase();
+            if (!inputId) return;
+            
+            const hostId = ID_PREFIX + inputId; 
 
-        async function startViewer(hostId) {
-            const ice = await getIceServers();
+            logDebug(`Connecting to Host: ${inputId}`);
             switchView('viewer-player');
-            peer = new Peer(undefined, { config: { iceServers: ice } });
+            const loadingMsg = document.getElementById('loading-msg');
+            loadingMsg.innerText = "Initializing network...";
+            
+            document.getElementById('btn-exit').style.display = 'block';
 
-            peer.on('open', () => {
-                const conn = peer.connect(ID_PREFIX + hostId);
-                conn.on('open', () => console.log("Connected to Host"));
-            });
+            if (peer) { try { peer.destroy(); } catch(e){} }
+            peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
-                call.answer();
-                call.on('stream', (stream) => {
-                    document.getElementById('player-loading').classList.add('hidden');
-                    const v = document.getElementById('remote-video');
-                    v.srcObject = stream;
-                    v.play().catch(() => {
-                        document.getElementById('manual-play-overlay').classList.remove('hidden');
-                    });
+                logDebug(`Incoming stream. Answering...`);
+                call.answer(); 
+                
+                call.on('stream', (remoteStream) => {
+                    logDebug("Stream track received.");
+                    document.getElementById('player-loading').style.display = 'none';
+                    document.getElementById('btn-fullscreen').style.display = 'block'; 
+                    
+                    const videoEl = document.getElementById('remote-video');
+                    if (videoEl.srcObject !== remoteStream) {
+                        videoEl.srcObject = remoteStream;
+                    }
+                    
+                    let playAttempted = false;
+
+                    const attemptPlay = () => {
+                        playAttempted = true;
+                        videoEl.play().then(() => {
+                            logDebug("Autoplay succeeded!");
+                            document.getElementById('manual-play-btn').style.display = 'none';
+                        }).catch(e => {
+                            logDebug(`Browser Blocked Autoplay (Audio policy). Require tap.`, true);
+                            document.getElementById('manual-play-btn').style.display = 'block';
+                        });
+                    };
+
+                    videoEl.onloadedmetadata = attemptPlay;
+                    
+                    setTimeout(() => {
+                        if (!playAttempted) attemptPlay();
+                    }, 1500);
+
+                    setTimeout(() => {
+                        if (videoEl.paused) {
+                            logDebug("Video stall detected. Showing manual play button.", false, true);
+                            document.getElementById('manual-play-btn').style.display = 'block';
+                        }
+                    }, 3000);
+                });
+
+                call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); });
+            });
+
+            peer.on('open', (viewerId) => {
+                logDebug(`Viewer initialized.`);
+                loadingMsg.innerText = `Contacting Studio...`;
+                
+                const conn = peer.connect(hostId, { reliable: true });
+                
+                const handleConnOpen = () => {
+                    logDebug("Data Channel connected.");
+                    loadingMsg.innerText = "Connected! Waiting for host to share screen...";
+                    conn.send({ type: 'VIEWER_READY' });
+                };
+
+                if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
+
+                conn.on('data', (data) => {
+                    if (data.type === 'PING') {
+                        conn.send({ type: 'PONG' });
+                    }
+                    else if (data.type === 'START_SHARE') {
+                        loadingMsg.innerText = "Loading stream...";
+                    }
+                    else if (data.type === 'STOP_SHARE') { 
+                        logDebug('Host paused screen share.', false, true); 
+                        document.getElementById('player-loading').style.display = 'block';
+                        // 更新畫面上的提示文字為更清晰的雙語說明
+                        loadingMsg.innerText = "主持人已停止分享 / Host stopped sharing.";
+                        document.getElementById('remote-video').srcObject = null;
+                        document.getElementById('manual-play-btn').style.display = 'none';
+                        document.getElementById('btn-fullscreen').style.display = 'none';
+                        
+                        if (document.fullscreenElement) document.exitFullscreen();
+
+                        // 彈窗通知用家主持人已經停止分享
+                        alert("主持人已停止分享螢幕\nHost has stopped screen sharing.");
+                    }
+                });
+
+                conn.on('close', () => { 
+                    alert('Session closed by Host.'); 
+                    window.location.href = 'https://kenchan20141.github.io/project/'; 
                 });
             });
 
-            peer.on('error', () => {
-                alert("Studio not found.");
-                location.reload();
+            peer.on('error', (err) => { 
+                logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); 
+                if (err.type === 'peer-unavailable') {
+                    loadingMsg.innerText = "Host not found. Check Access Code.";
+                    setTimeout(() => {
+                        window.location.href = 'https://kenchan20141.github.io/project/';
+                    }, 3000);
+                }
             });
         }
 
         function forcePlay() {
-            document.getElementById('remote-video').play();
-            document.getElementById('manual-play-overlay').classList.add('hidden');
+            logDebug("Manual play pressed.");
+            const videoEl = document.getElementById('remote-video');
+            videoEl.play().then(() => {
+                document.getElementById('manual-play-btn').style.display = 'none';
+            }).catch(e => {
+                logDebug(`Manual play failed: ${e.message}`, true);
+                alert("Please ensure your browser allows video & audio playback.");
+            });
         }
 
+        /* 全螢幕控制 */
         function toggleFullScreen() {
-            const el = document.getElementById('viewer-player');
-            if (!document.fullscreenElement) el.requestFullscreen();
-            else document.exitFullscreen();
-        }
-
-        function confirmExit() {
-            if(confirm("確定結束觀看？")) location.reload();
-        }
-
-        window.onload = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const room = urlParams.get('room');
-            if(room) {
-                document.getElementById('join-id').value = room;
-                initRole('viewer');
-                setTimeout(joinSession, 500);
+            const player = document.getElementById('viewer-player');
+            if (!document.fullscreenElement) {
+                if (player.requestFullscreen) { player.requestFullscreen(); }
+                else if (player.webkitRequestFullscreen) { player.webkitRequestFullscreen(); } 
+            } else {
+                if (document.exitFullscreen) { document.exitFullscreen(); }
+                else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
             }
-        };
+        }
+
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+
+        function updateFullscreenButton() {
+            const btn = document.getElementById('btn-fullscreen');
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                btn.innerText = "⛶ Fullscreen";
+            } else {
+                btn.innerText = "✖ Exit Fullscreen";
+            }
+        }
+
+        /* 退出並確認邏輯 */
+        function confirmExit() {
+            const isConfirmed = window.confirm("確定要退出觀看嗎？\nAre you sure you want to exit?");
+            if (isConfirmed) {
+                logDebug("User confirmed exit. Terminating session...");
+                
+                // 1. 如果在全螢幕狀態，先退出全螢幕
+                if (document.fullscreenElement || document.webkitFullscreenElement) {
+                    if (document.exitFullscreen) { document.exitFullscreen(); }
+                    else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+                }
+                
+                // 2. 切斷 WebRTC 確保資源釋放
+                if (peer) {
+                    try { peer.destroy(); } catch(e) { logDebug(`Peer destroy error: ${e.message}`, true); }
+                }
+                
+                // 3. 乾淨俐落地跳轉回指定的 URL，清除所有 room 參數
+                window.location.href = 'https://kenchan20141.github.io/project/';
+            }
+        }
     </script>
 </body>
 </html>
