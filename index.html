@@ -536,12 +536,16 @@
                     else if (data.type === 'STOP_SHARE') { 
                         logDebug('Host paused screen share.', false, true); 
                         document.getElementById('player-loading').style.display = 'block';
-                        loadingMsg.innerText = "Presenter paused sharing. Waiting...";
+                        // 更新畫面上的提示文字為更清晰的雙語說明
+                        loadingMsg.innerText = "主持人已停止分享 / Host stopped sharing.";
                         document.getElementById('remote-video').srcObject = null;
                         document.getElementById('manual-play-btn').style.display = 'none';
                         document.getElementById('btn-fullscreen').style.display = 'none';
                         
                         if (document.fullscreenElement) document.exitFullscreen();
+
+                        // 彈窗通知用家主持人已經停止分享
+                        alert("主持人已停止分享螢幕\nHost has stopped screen sharing.");
                     }
                 });
 
