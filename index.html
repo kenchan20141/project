@@ -3,89 +3,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SyncCast - Screen Sharing Studio</title>
+    <title>SyncCast - Cinematic Studio</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght=0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Oswald:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
         :root {
-            --morandi-bg: #EAE5DF; --morandi-surface: #F5F3EF; --morandi-primary: #7A8485;
-            --morandi-primary-hover: #606A6B; --morandi-text: #2C302E; --morandi-muted: #8E8A85;
-            --morandi-border: #D1CEC5; --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif;
+            /* Morandi Cinematic Palette */
+            --bg-base: #18191B;       /* 極深霧藍灰 (背景) */
+            --surface: #242426;       /* 莫蘭迪深石灰 (膠片主體) */
+            --surface-light: #2F3033; /* 按鈕與面板高光 */
+            --primary: #B89B72;       /* 復古黃銅/霧金 (柯達暖調) */
+            --primary-hover: #CDB38B;
+            --text-main: #E6E2D6;     /* 泛黃羊皮紙白 */
+            --text-muted: #858480;    /* 刻度暗灰 */
+            --border: #38383A;        /* 低對比邊框 */
+            --accent-red: #A85751;    /* 莫蘭迪暗紅 (錄影指示) */
+            
+            --font-title: 'Oswald', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+            
+            --shadow-depth: 0 24px 50px rgba(0, 0, 0, 0.7);
+            --inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
         }
+        
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         body {
-            background-color: var(--morandi-bg); color: var(--morandi-text); font-family: var(--font-sans);
-            display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px 16px; 
+            background-color: var(--bg-base); 
+            background-image: radial-gradient(circle at 50% 0%, #202225 0%, var(--bg-base) 80%);
+            color: var(--text-main); 
+            font-family: var(--font-sans);
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            padding: 24px 16px; 
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
-        body::before { content: "VOL. 1"; position: absolute; top: 24px; left: 24px; font-size: 11px; letter-spacing: 4px; color: var(--morandi-muted); }
+        
+        /* 膠片邊緣的工業代碼 (垂直排列) */
+        body::before { 
+            content: "35MM // CINE-SYNC FORMAT ▻ KODAK VISION3"; 
+            position: fixed; 
+            top: 50%; 
+            left: 24px; 
+            transform: translateY(-50%) rotate(-90deg);
+            transform-origin: left center;
+            font-size: 10px; 
+            font-family: var(--font-mono);
+            letter-spacing: 6px; 
+            color: rgba(133, 132, 128, 0.3); 
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
         .container {
-            background: var(--morandi-surface); border: 1px solid var(--morandi-border); padding: 32px 24px; width: 100%; max-width: 400px;
-            text-align: center; box-shadow: 10px 10px 40px rgba(0,0,0,0.04); position: relative; transition: opacity 0.4s ease, transform 0.4s ease;
+            background: var(--surface); 
+            width: 100%; 
+            max-width: 460px;
+            text-align: center; 
+            position: relative; 
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            padding: 56px 64px;
+            box-shadow: var(--shadow-depth), var(--inner-glow);
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.8);
         }
-        @media (min-width: 480px) { .container { padding: 48px 40px; } }
+
+        /* 高精度 SVG 實體底片齒孔設計 */
+        .container::before, .container::after {
+            content: "";
+            position: absolute;
+            top: 0; 
+            bottom: 0; 
+            width: 32px;
+            background-color: var(--surface);
+            /* 使用 SVG 繪製完美的圓角矩形齒孔，並帶有內陰影效果 */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='40'%3E%3Crect x='8' y='12' width='16' height='16' rx='3' fill='%2318191B' stroke='%23000000' stroke-width='1.5' stroke-opacity='0.6'/%3E%3Crect x='8' y='12' width='16' height='16' rx='3' fill='none' stroke='%23ffffff' stroke-width='1' stroke-opacity='0.03'/%3E%3C/svg%3E");
+            background-repeat: repeat-y;
+            background-position: center top;
+            z-index: 0;
+            border-top: 1px solid rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .container::before { 
+            left: 0; 
+            border-radius: 6px 0 0 6px; 
+            border-right: 1px solid rgba(0,0,0,0.6);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+        }
+        .container::after { 
+            right: 0; 
+            border-radius: 0 6px 6px 0; 
+            border-left: 1px solid rgba(0,0,0,0.6);
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+        }
+        
+        .container > * { position: relative; z-index: 1; }
+        
         .hidden { display: none !important; opacity: 0; pointer-events: none; transform: translateY(10px); }
-        h1 { font-family: var(--font-serif); font-size: 32px; font-weight: 400; margin-bottom: 12px; font-style: italic; }
-        p.subtitle { color: var(--morandi-muted); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 32px; position: relative; }
-        p.subtitle::after { content: ""; display: block; width: 40px; height: 1px; background: var(--morandi-border); margin: 16px auto 0; }
+        
+        h1 { 
+            font-family: var(--font-title); 
+            font-size: 36px; 
+            font-weight: 500; 
+            margin-bottom: 6px; 
+            letter-spacing: 6px; 
+            text-transform: uppercase; 
+            color: var(--text-main);
+        }
+        
+        p.subtitle { 
+            color: var(--primary); 
+            font-size: 10px; 
+            font-family: var(--font-mono);
+            letter-spacing: 4px; 
+            text-transform: uppercase; 
+            margin-bottom: 48px; 
+            opacity: 0.9;
+        }
+        
         button {
-            width: 100%; padding: 16px; margin-bottom: 16px; font-size: 14px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; 
-            border: 1px solid var(--morandi-border); background: transparent; color: var(--morandi-text); cursor: pointer; transition: all 0.3s ease;
+            width: 100%; 
+            padding: 18px; 
+            margin-bottom: 16px; 
+            font-size: 12px; 
+            font-weight: 500; 
+            letter-spacing: 3px; 
+            text-transform: uppercase; 
+            border: 1px solid var(--border); 
+            background: var(--surface-light); 
+            color: var(--text-main); 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border-radius: 4px;
+            font-family: var(--font-sans);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
-        button:hover { background: rgba(0,0,0,0.03); }
-        button.primary { background: var(--morandi-primary); color: #FFF; border: none; }
-        button.primary:hover { background: var(--morandi-primary-hover); box-shadow: 0 8px 20px rgba(122,132,133,0.3); transform: translateY(-1px); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        button:hover { 
+            background: #3A3B3E; 
+            border-color: #4A4B4E; 
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        
+        button.primary { 
+            background: var(--primary); 
+            color: #121212; 
+            border: 1px solid transparent; 
+            font-weight: 600;
+        }
+        
+        button.primary:hover { 
+            background: var(--primary-hover); 
+            box-shadow: 0 8px 20px rgba(184, 155, 114, 0.15);
+        }
+        
+        button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+        
+        /* 觀眾端輸入框 - 深邃內陰影質感 */
         input {
-            width: 100%; padding: 16px 0; margin-bottom: 32px; background: transparent; border: none; border-bottom: 1px solid var(--morandi-border); 
-            color: var(--morandi-text); font-size: 24px; font-family: var(--font-serif); text-align: center; outline: none; transition: border-color 0.3s; text-transform: uppercase;
+            width: 100%; 
+            padding: 24px 0; 
+            margin-bottom: 36px; 
+            background: #121213; 
+            border: 1px solid #000; 
+            color: var(--primary); 
+            font-size: 46px; 
+            font-family: var(--font-mono); 
+            font-weight: 400;
+            text-align: center; 
+            outline: none; 
+            transition: all 0.3s; 
+            text-transform: uppercase;
+            border-radius: 6px;
+            box-shadow: inset 0 4px 15px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.05);
+            letter-spacing: 8px;
         }
-        input::placeholder { color: #D1CEC5; font-family: var(--font-sans); font-size: 14px; letter-spacing: 2px; }
-        input:focus { border-bottom-color: var(--morandi-primary); }
-        .info-label { font-size: 11px; letter-spacing: 2px; color: var(--morandi-muted); text-transform: uppercase; margin-bottom: 8px;}
-        .code-display { font-family: var(--font-serif); font-size: 42px; font-weight: 400; letter-spacing: 8px; color: var(--morandi-text); margin-bottom: 24px; }
-        .preview-wrapper { width: 100%; aspect-ratio: 16/9; background: #E5E2DA; border: 1px solid var(--morandi-border); margin-bottom: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; }
-        .preview-placeholder { position: absolute; font-size: 12px; color: var(--morandi-muted); letter-spacing: 1px; }
-        #qrcode { display: flex; justify-content: center; margin: 24px auto 0; width: 100%; max-width: 140px; }
-        #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 8px solid #FFF; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .status-text { font-size: 13px; color: var(--morandi-primary); display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; }
-        .status-dot { width: 6px; height: 6px; background: var(--morandi-primary); border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        input::placeholder { color: #2A2B2D; font-size: 28px; letter-spacing: 8px; }
+        input:focus { border-color: var(--primary); box-shadow: inset 0 4px 15px rgba(0,0,0,0.8), 0 0 0 1px var(--primary); }
         
-        #viewer-player { position: fixed; inset: 0; background: #1A1A1A; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loading-box { text-align: center; color: #EAE5DF; font-family: var(--font-serif); font-style: italic; }
-        .loading-text { font-size: 16px; letter-spacing: 1px; margin-bottom: 16px; padding: 0 20px;}
-        #manual-play-btn { position: absolute; z-index: 1000; padding: 12px 32px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #FFF; backdrop-filter: blur(4px); display: none; cursor: pointer; font-size: 14px; }
+        .info-label { 
+            font-size: 10px; 
+            letter-spacing: 3px; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+        }
         
-        #btn-fullscreen { 
-            position: absolute; top: 16px; right: 16px; z-index: 1001; 
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); 
-            color: #FFF; backdrop-filter: blur(4px); padding: 8px 16px; font-size: 12px; 
-            cursor: pointer; border-radius: 4px; display: none; width: auto; margin: 0; transition: background 0.3s;
+        /* 極度顯眼的 ROOM TOKEN - 仿 LED 或場記板計數器 */
+        .code-display { 
+            font-family: var(--font-mono); 
+            font-size: 64px; 
+            font-weight: 400; 
+            letter-spacing: 16px; 
+            color: var(--primary); 
+            background: #101011;
+            margin-bottom: 36px; 
+            padding: 20px 8px 20px 24px;
+            border-radius: 6px;
+            border: 1px solid #000;
+            box-shadow: inset 0 8px 24px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.06);
+            position: relative;
         }
-        #btn-fullscreen:hover { background: rgba(255,255,255,0.25); }
-
-        #btn-exit { 
-            position: absolute; top: 16px; left: 16px; z-index: 1001; 
-            background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.4); 
-            color: #FFF; backdrop-filter: blur(4px); padding: 8px 16px; font-size: 12px; 
-            cursor: pointer; border-radius: 4px; display: none; width: auto; margin: 0; transition: background 0.3s;
+        
+        /* 預覽視窗 - 專業監視器質感 */
+        .preview-wrapper { 
+            width: 100%; 
+            aspect-ratio: 16/9; 
+            background: #0C0D0E; 
+            border: 1px solid #000; 
+            margin-bottom: 28px; 
+            position: relative; 
+            overflow: hidden; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border-radius: 4px;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.05);
         }
-        #btn-exit:hover { background: rgba(255,100,100,0.35); }
+        
+        /* 取景器對焦框線 (Safe Area) */
+        .preview-wrapper::after {
+            content: "";
+            position: absolute;
+            inset: 12px;
+            border: 1px solid rgba(230, 226, 214, 0.15);
+            pointer-events: none;
+            /* 製作十字準心與邊角 */
+            background: 
+                linear-gradient(to right, rgba(230, 226, 214, 0.2) 1px, transparent 1px) 50% 50% / 20px 1px no-repeat,
+                linear-gradient(to bottom, rgba(230, 226, 214, 0.2) 1px, transparent 1px) 50% 50% / 1px 20px no-repeat;
+        }
+        
+        .preview-wrapper::before {
+            content: "STBY";
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            color: var(--accent-red);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            z-index: 2;
+        }
+        video[srcObject]:not([srcObject="null"]) ~ .preview-placeholder { display: none; }
+        
+        video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; position: relative; z-index: 1; }
+        .preview-placeholder { position: absolute; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); letter-spacing: 4px; z-index: 0; }
+        
+        /* QR Code 樣式加入可點擊反饋 */
+        #qrcode { display: flex; justify-content: center; margin: 36px auto 0; width: 100%; max-width: 130px; opacity: 0.9; cursor: pointer; transition: transform 0.3s, opacity 0.3s; }
+        #qrcode:hover { transform: scale(1.05); opacity: 1; }
+        #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 6px solid var(--text-main); border-radius: 4px; }
+        
+        .status-text { font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 28px; letter-spacing: 2px; text-transform: uppercase; }
+        .status-dot { width: 6px; height: 6px; background: var(--accent-red); border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+        
+        @keyframes pulse { 0% { opacity: 0.8; box-shadow: 0 0 0px var(--accent-red); } 50% { opacity: 0.2; box-shadow: none; } 100% { opacity: 0.8; box-shadow: 0 0 0px var(--accent-red); } }
+        
+        /* 觀眾播放器 - 全螢幕黑畫面 */
+        #viewer-player { position: fixed; inset: 0; background: #080809; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .loading-box { text-align: center; color: var(--text-main); font-family: var(--font-mono); text-transform: uppercase; }
+        .loading-text { font-size: 11px; letter-spacing: 4px; margin-bottom: 16px; padding: 0 20px; color: var(--primary);}
+        
+        #manual-play-btn { position: absolute; z-index: 1000; padding: 18px 36px; background: rgba(184, 155, 114, 0.05); border: 1px solid var(--primary); color: var(--primary); backdrop-filter: blur(8px); display: none; cursor: pointer; font-size: 11px; font-family: var(--font-mono); letter-spacing: 3px; border-radius: 4px; text-transform: uppercase; transition: all 0.3s; }
+        #manual-play-btn:hover { background: rgba(184, 155, 114, 0.15); box-shadow: 0 0 20px rgba(184, 155, 114, 0.1); }
+        
+        #btn-fullscreen, #btn-exit { 
+            position: absolute; z-index: 1001; 
+            background: rgba(36, 36, 38, 0.4); border: 1px solid rgba(255,255,255,0.05); 
+            backdrop-filter: blur(12px); padding: 12px 24px; font-size: 10px; 
+            font-family: var(--font-mono); letter-spacing: 2px; text-transform: uppercase;
+            cursor: pointer; border-radius: 4px; display: none; width: auto; margin: 0; transition: background 0.3s, border-color 0.3s;
+        }
+        #btn-fullscreen { top: 24px; right: 24px; color: var(--text-main); }
+        #btn-fullscreen:hover { background: rgba(58, 59, 62, 0.6); border-color: rgba(255,255,255,0.1); }
 
-        #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(15, 15, 15, 0.95); color: #55ff55; font-family: 'Courier New', Courier, monospace; font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 10px; box-sizing: border-box; border-top: 1px solid #333; }
-        #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.5; padding-right: 5px; }
-        #btn-debug { position: fixed; bottom: 12px; right: 12px; z-index: 99998; background: rgba(44, 48, 46, 0.9); color: #fff; border: 1px solid #7A8485; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; width: auto; margin: 0; }
+        #btn-exit { top: 24px; left: 24px; color: var(--accent-red); }
+        #btn-exit:hover { background: rgba(168, 87, 81, 0.15); border-color: var(--accent-red); }
+
+        #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(24, 25, 27, 0.98); color: var(--text-main); font-family: var(--font-mono); font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 24px; box-sizing: border-box; border-top: 1px solid var(--border); box-shadow: 0 -10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
+        #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.8; padding-right: 12px; }
+        #debug-content::-webkit-scrollbar { width: 4px; }
+        #debug-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        #btn-debug { position: fixed; bottom: 24px; right: 24px; z-index: 99998; background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); padding: 10px 16px; border-radius: 4px; font-size: 10px; font-family: var(--font-mono); letter-spacing: 2px; cursor: pointer; width: auto; margin: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: all 0.3s; }
+        #btn-debug:hover { color: var(--text-main); background: var(--surface-light); }
+
+        /* 全螢幕 QR Code 遮罩樣式 */
+        #qr-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(24, 25, 27, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+        #qr-overlay-content {
+            padding: 24px;
+            background: var(--text-main);
+            border-radius: 8px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+        }
+        #qr-overlay-content img, #qr-overlay-content canvas {
+            width: 60vmin !important;
+            height: 60vmin !important;
+            max-width: 500px;
+            max-height: 500px;
+            display: block;
+        }
+        .qr-close-text {
+            margin-top: 36px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+        }
     </style>
 </head>
 <body>
     <div id="view-home" class="container">
         <h1>SyncCast</h1>
-        <p class="subtitle">Screen Sharing Studio</p>
+        <p class="subtitle">Cinematic Screen Studio</p>
         <button id="btn-start-presenter" class="primary" onclick="initRole('presenter')">Start Presenting</button>
         <button id="btn-start-viewer" onclick="initRole('viewer')">Join Session</button>
     </div>
@@ -96,20 +351,20 @@
         <div class="info-label">Room Access Code</div>
         <div id="room-id" class="code-display">...</div>
         <div class="preview-wrapper">
-            <span class="preview-placeholder">Live Preview</span>
+            <span class="preview-placeholder">NO SIGNAL</span>
             <video id="local-video" autoplay playsinline muted></video>
         </div>
         <div class="status-text">
-            <span class="status-dot"></span>Connected Viewers: <span id="viewer-count" style="margin-left:4px; font-weight:600;">0</span>
+            <span class="status-dot"></span>Connected Viewers: <span id="viewer-count" style="margin-left:6px; font-weight:400; color:var(--text-main);">0</span>
         </div>
         <button id="btn-share" class="primary" onclick="startScreenShare()">Start Screen Share</button>
-        <div id="qrcode"></div>
+        <div id="qrcode" title="Click to Enlarge"></div>
     </div>
 
     <div id="view-viewer" class="container hidden">
         <h1>Join</h1>
         <p class="subtitle" id="viewer-subtitle">Enter Access Code</p>
-        <input type="text" id="join-id" placeholder="e.g. 8A9X" autocomplete="off" maxlength="4">
+        <input type="text" id="join-id" placeholder="8A9X" autocomplete="off" maxlength="4">
         <button class="primary" onclick="joinSession()">Connect</button>
         <button onclick="window.location.href='https://kenchan20141.github.io/project/'">Back</button>
     </div>
@@ -125,14 +380,21 @@
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream & Audio</button>
     </div>
 
+    <!-- 偵錯面板 -->
     <div id="debug-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #333;">
-            <span style="font-weight:bold; color:#fff;">Diagnostics & Network Logs</span>
-            <button onclick="toggleDebug()" style="padding: 2px 8px; font-size: 10px; width: auto; margin: 0; border: 1px solid #fff; background: transparent; color: #fff;">Close</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+            <span style="font-weight:400; color:var(--text-main); letter-spacing: 2px;">DIAGNOSTICS & NETWORK LOGS</span>
+            <button onclick="toggleDebug()" style="padding: 6px 16px; font-size: 10px; width: auto; margin: 0; border: 1px solid var(--border); background: #121213; color: var(--text-main);">CLOSE</button>
         </div>
         <div id="debug-content"></div>
     </div>
     <button id="btn-debug" onclick="toggleDebug()">LOG</button>
+
+    <!-- 全螢幕 QR Code 遮罩層 -->
+    <div id="qr-overlay" class="hidden" onclick="closeFullscreenQR()">
+        <div id="qr-overlay-content"></div>
+        <div class="qr-close-text">Tap anywhere to close</div>
+    </div>
 
     <script>
         const ID_PREFIX = "sync-cast-room-"; 
@@ -161,11 +423,11 @@
             }
 
             const line = document.createElement('div');
-            if (isError) line.style.color = '#ff5555';
-            else if (isWarning) line.style.color = '#ffaa00';
-            else line.style.color = '#55ff55';
+            if (isError) line.style.color = 'var(--accent-red)';
+            else if (isWarning) line.style.color = 'var(--primary)';
+            else line.style.color = 'var(--text-muted)';
             
-            line.style.marginBottom = '6px';
+            line.style.marginBottom = '8px';
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
             line.innerText = `[${time}] ${msg}`;
             
@@ -254,7 +516,10 @@
                 
                 const joinUrl = `${window.location.origin}${window.location.pathname}?room=${displayId}`;
                 document.getElementById("qrcode").innerHTML = ""; 
-                new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#2C302E", colorLight: "#F5F3EF" });
+                new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#18191B", colorLight: "#E6E2D6" });
+                
+                // 設定點擊 QR Code 時開啟全螢幕視窗
+                document.getElementById("qrcode").onclick = () => openFullscreenQR(joinUrl);
                 
                 startHeartbeat();
             });
@@ -296,6 +561,28 @@
                     logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true);
                 }
             });
+        }
+
+        // 全螢幕 QR Code 顯示與關閉邏輯
+        function openFullscreenQR(url) {
+            const overlay = document.getElementById('qr-overlay');
+            const content = document.getElementById('qr-overlay-content');
+            content.innerHTML = ""; // 清空舊內容
+            
+            // 產生高解析度的 QR Code
+            new QRCode(content, { 
+                text: url, 
+                width: 512, 
+                height: 512, 
+                colorDark: "#18191B", 
+                colorLight: "#E6E2D6" 
+            });
+            
+            overlay.classList.remove('hidden');
+        }
+
+        function closeFullscreenQR() {
+            document.getElementById('qr-overlay').classList.add('hidden');
         }
 
         function startHeartbeat() {
@@ -377,11 +664,13 @@
                 
                 logDebug("Display Media Acquired (Audio enabled)!");
                 document.getElementById('local-video').srcObject = newStream;
-                document.querySelector('.preview-placeholder').style.display = 'none';
+                document.querySelector('.preview-wrapper').classList.add('active');
 
                 const btnShare = document.getElementById('btn-share');
                 btnShare.innerText = "Sharing... Click to Change";
-                btnShare.style.background = "#6B7A75"; 
+                btnShare.style.background = "var(--surface-light)";
+                btnShare.style.color = "var(--text-main)";
+                btnShare.style.border = "1px solid var(--border)";
 
                 if (localStream) {
                     const oldHasAudio = localStream.getAudioTracks().length > 0;
@@ -430,9 +719,11 @@
                 localStream.getVideoTracks()[0].onended = () => {
                     logDebug("Screen sharing stopped by user.");
                     btnShare.innerText = "Start Screen Share";
-                    btnShare.style.background = "var(--morandi-primary)";
+                    btnShare.style.background = "var(--primary)";
+                    btnShare.style.color = "#121212";
+                    btnShare.style.border = "1px solid transparent";
                     document.getElementById('local-video').srcObject = null;
-                    document.querySelector('.preview-placeholder').style.display = 'block';
+                    document.querySelector('.preview-wrapper').classList.remove('active');
                     
                     connectedViewers.forEach(v => { try { v.data.send({ type: 'STOP_SHARE' }); } catch(e){} });
                     activeCalls.forEach(c => { try { c.close(); } catch(e){} });
@@ -461,7 +752,7 @@
             logDebug(`Connecting to Host: ${inputId}`);
             switchView('viewer-player');
             const loadingMsg = document.getElementById('loading-msg');
-            loadingMsg.innerText = "Initializing network...";
+            loadingMsg.innerText = "INITIALIZING NETWORK...";
             
             document.getElementById('btn-exit').style.display = 'block';
 
@@ -514,13 +805,13 @@
 
             peer.on('open', (viewerId) => {
                 logDebug(`Viewer initialized.`);
-                loadingMsg.innerText = `Contacting Studio...`;
+                loadingMsg.innerText = `CONTACTING STUDIO...`;
                 
                 const conn = peer.connect(hostId, { reliable: true });
                 
                 const handleConnOpen = () => {
                     logDebug("Data Channel connected.");
-                    loadingMsg.innerText = "Connected! Waiting for host to share screen...";
+                    loadingMsg.innerText = "CONNECTED / WAITING FOR HOST STREAM...";
                     conn.send({ type: 'VIEWER_READY' });
                 };
 
@@ -531,20 +822,18 @@
                         conn.send({ type: 'PONG' });
                     }
                     else if (data.type === 'START_SHARE') {
-                        loadingMsg.innerText = "Loading stream...";
+                        loadingMsg.innerText = "LOADING STREAM...";
                     }
                     else if (data.type === 'STOP_SHARE') { 
                         logDebug('Host paused screen share.', false, true); 
                         document.getElementById('player-loading').style.display = 'block';
-                        // 更新畫面上的提示文字為更清晰的雙語說明
-                        loadingMsg.innerText = "主持人已停止分享 / Host stopped sharing.";
+                        loadingMsg.innerText = "主持人已停止分享 / HOST STOPPED SHARING";
                         document.getElementById('remote-video').srcObject = null;
                         document.getElementById('manual-play-btn').style.display = 'none';
                         document.getElementById('btn-fullscreen').style.display = 'none';
                         
                         if (document.fullscreenElement) document.exitFullscreen();
 
-                        // 彈窗通知用家主持人已經停止分享
                         alert("主持人已停止分享螢幕\nHost has stopped screen sharing.");
                     }
                 });
@@ -558,7 +847,7 @@
             peer.on('error', (err) => { 
                 logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); 
                 if (err.type === 'peer-unavailable') {
-                    loadingMsg.innerText = "Host not found. Check Access Code.";
+                    loadingMsg.innerText = "HOST NOT FOUND. CHECK ACCESS CODE.";
                     setTimeout(() => {
                         window.location.href = 'https://kenchan20141.github.io/project/';
                     }, 3000);
@@ -595,9 +884,9 @@
         function updateFullscreenButton() {
             const btn = document.getElementById('btn-fullscreen');
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                btn.innerText = "⛶ Fullscreen";
+                btn.innerText = "⛶ FULLSCREEN";
             } else {
-                btn.innerText = "✖ Exit Fullscreen";
+                btn.innerText = "✖ EXIT FULLSCREEN";
             }
         }
 
@@ -607,18 +896,15 @@
             if (isConfirmed) {
                 logDebug("User confirmed exit. Terminating session...");
                 
-                // 1. 如果在全螢幕狀態，先退出全螢幕
                 if (document.fullscreenElement || document.webkitFullscreenElement) {
                     if (document.exitFullscreen) { document.exitFullscreen(); }
                     else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
                 }
                 
-                // 2. 切斷 WebRTC 確保資源釋放
                 if (peer) {
                     try { peer.destroy(); } catch(e) { logDebug(`Peer destroy error: ${e.message}`, true); }
                 }
-                
-                // 3. 乾淨俐落地跳轉回指定的 URL，清除所有 room 參數
+
                 window.location.href = 'https://kenchan20141.github.io/project/';
             }
         }
