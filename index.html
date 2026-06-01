@@ -69,7 +69,6 @@
         }
         #btn-fullscreen:hover { background: rgba(255,255,255,0.25); }
 
-        /* 新增：退出按鈕樣式 */
         #btn-exit { 
             position: absolute; top: 16px; left: 16px; z-index: 1001; 
             background: rgba(255,100,100,0.15); border: 1px solid rgba(255,100,100,0.4); 
@@ -112,7 +111,7 @@
         <p class="subtitle" id="viewer-subtitle">Enter Access Code</p>
         <input type="text" id="join-id" placeholder="e.g. 8A9X" autocomplete="off" maxlength="4">
         <button class="primary" onclick="joinSession()">Connect</button>
-        <button onclick="location.reload()">Back</button>
+        <button onclick="window.location.href='https://kenchan20141.github.io/project/'">Back</button>
     </div>
 
     <div id="viewer-player" class="hidden">
@@ -464,7 +463,6 @@
             const loadingMsg = document.getElementById('loading-msg');
             loadingMsg.innerText = "Initializing network...";
             
-            // 一進入播放介面就顯示退出按鈕，讓用戶在等待時也能取消
             document.getElementById('btn-exit').style.display = 'block';
 
             if (peer) { try { peer.destroy(); } catch(e){} }
@@ -547,14 +545,19 @@
                     }
                 });
 
-                conn.on('close', () => { alert('Session closed by Host.'); location.reload(); });
+                conn.on('close', () => { 
+                    alert('Session closed by Host.'); 
+                    window.location.href = 'https://kenchan20141.github.io/project/'; 
+                });
             });
 
             peer.on('error', (err) => { 
                 logDebug(`PeerJS Error [${err.type}]: ${err.message}`, true); 
                 if (err.type === 'peer-unavailable') {
                     loadingMsg.innerText = "Host not found. Check Access Code.";
-                    setTimeout(() => location.reload(), 3000);
+                    setTimeout(() => {
+                        window.location.href = 'https://kenchan20141.github.io/project/';
+                    }, 3000);
                 }
             });
         }
@@ -594,7 +597,7 @@
             }
         }
 
-        /* 新增：退出並確認邏輯 */
+        /* 退出並確認邏輯 */
         function confirmExit() {
             const isConfirmed = window.confirm("確定要退出觀看嗎？\nAre you sure you want to exit?");
             if (isConfirmed) {
@@ -611,8 +614,8 @@
                     try { peer.destroy(); } catch(e) { logDebug(`Peer destroy error: ${e.message}`, true); }
                 }
                 
-                // 3. 重新載入頁面，乾淨俐落地回到首頁
-                location.reload();
+                // 3. 乾淨俐落地跳轉回指定的 URL，清除所有 room 參數
+                window.location.href = 'https://kenchan20141.github.io/project/';
             }
         }
     </script>
