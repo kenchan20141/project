@@ -12,15 +12,15 @@
     <style>
         :root {
             /* Morandi Cinematic Palette */
-            --bg-base: #18191B;       /* 極深霧藍灰 (背景) */
-            --surface: #242426;       /* 莫蘭迪深石灰 (膠片主體) */
-            --surface-light: #2F3033; /* 按鈕與面板高光 */
-            --primary: #B89B72;       /* 復古黃銅/霧金 (柯達暖調) */
+            --bg-base: #18191B;       
+            --surface: #242426;       
+            --surface-light: #2F3033; 
+            --primary: #B89B72;       
             --primary-hover: #CDB38B;
-            --text-main: #E6E2D6;     /* 泛黃羊皮紙白 */
-            --text-muted: #858480;    /* 刻度暗灰 */
-            --border: #38383A;        /* 低對比邊框 */
-            --accent-red: #A85751;    /* 莫蘭迪暗紅 (錄影指示) */
+            --text-main: #E6E2D6;     
+            --text-muted: #858480;    
+            --border: #38383A;        
+            --accent-red: #A85751;    
             
             --font-title: 'Oswald', sans-serif;
             --font-mono: 'Space Mono', monospace;
@@ -46,7 +46,6 @@
             overflow-x: hidden;
         }
         
-        /* 膠片邊緣的工業代碼 (垂直排列) */
         body::before { 
             content: "35MM // CINE-SYNC FORMAT ▻ KODAK VISION3"; 
             position: fixed; 
@@ -75,7 +74,6 @@
             border: 1px solid rgba(0,0,0,0.8);
         }
 
-        /* 高精度 SVG 實體底片齒孔設計 */
         .container::before, .container::after {
             content: "";
             position: absolute;
@@ -83,7 +81,6 @@
             bottom: 0; 
             width: 32px;
             background-color: var(--surface);
-            /* 使用 SVG 繪製完美的圓角矩形齒孔，並帶有內陰影效果 */
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='40'%3E%3Crect x='8' y='12' width='16' height='16' rx='3' fill='%2318191B' stroke='%23000000' stroke-width='1.5' stroke-opacity='0.6'/%3E%3Crect x='8' y='12' width='16' height='16' rx='3' fill='none' stroke='%23ffffff' stroke-width='1' stroke-opacity='0.03'/%3E%3C/svg%3E");
             background-repeat: repeat-y;
             background-position: center top;
@@ -167,7 +164,44 @@
         
         button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
         
-        /* 觀眾端輸入框 - 深邃內陰影質感 */
+        /* 雙向語音 - 控制按鈕樣式 */
+        .control-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
+        .control-row button { margin-bottom: 0; }
+        
+        .mic-btn {
+            width: 56px;
+            height: 54px;
+            flex-shrink: 0;
+            border-radius: 4px;
+            background: rgba(36, 36, 38, 0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--accent-red); /* 預設靜音紅 / 鎖定紅 */
+            padding: 0;
+        }
+        
+        .mic-btn.active {
+            color: var(--primary); /* 開啟時黃銅色 / 解鎖黃銅色 */
+            border-color: var(--primary);
+            background: rgba(184, 155, 114, 0.1);
+            box-shadow: inset 0 0 15px rgba(184, 155, 114, 0.15);
+        }
+        .mic-btn svg { width: 22px; height: 22px; transition: all 0.3s ease; }
+        .mic-btn:hover:not(.locked) { background: #3A3B3E; }
+        
+        /* 觀眾端麥克風被鎖定時的樣式 */
+        .mic-btn.locked {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #1a1a1c;
+            border-color: rgba(255,255,255,0.02);
+            color: var(--accent-red);
+        }
+
         input {
             width: 100%; 
             padding: 24px 0; 
@@ -198,7 +232,6 @@
             font-family: var(--font-mono);
         }
         
-        /* 極度顯眼的 ROOM TOKEN - 仿 LED 或場記板計數器 */
         .code-display { 
             font-family: var(--font-mono); 
             font-size: 64px; 
@@ -214,7 +247,6 @@
             position: relative;
         }
         
-        /* 預覽視窗 - 專業監視器質感 */
         .preview-wrapper { 
             width: 100%; 
             aspect-ratio: 16/9; 
@@ -230,14 +262,12 @@
             box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.05);
         }
         
-        /* 取景器對焦框線 (Safe Area) */
         .preview-wrapper::after {
             content: "";
             position: absolute;
             inset: 12px;
             border: 1px solid rgba(230, 226, 214, 0.15);
             pointer-events: none;
-            /* 製作十字準心與邊角 */
             background: 
                 linear-gradient(to right, rgba(230, 226, 214, 0.2) 1px, transparent 1px) 50% 50% / 20px 1px no-repeat,
                 linear-gradient(to bottom, rgba(230, 226, 214, 0.2) 1px, transparent 1px) 50% 50% / 1px 20px no-repeat;
@@ -260,7 +290,6 @@
         video { width: 100%; height: 100%; object-fit: contain; image-rendering: crisp-edges; position: relative; z-index: 1; }
         .preview-placeholder { position: absolute; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); letter-spacing: 4px; z-index: 0; }
         
-        /* QR Code 樣式加入可點擊反饋 */
         #qrcode { display: flex; justify-content: center; margin: 36px auto 0; width: 100%; max-width: 130px; opacity: 0.9; cursor: pointer; transition: transform 0.3s, opacity 0.3s; }
         #qrcode:hover { transform: scale(1.05); opacity: 1; }
         #qrcode img, #qrcode canvas { width: 100% !important; height: auto !important; border: 6px solid var(--text-main); border-radius: 4px; }
@@ -270,7 +299,7 @@
         
         @keyframes pulse { 0% { opacity: 0.8; box-shadow: 0 0 0px var(--accent-red); } 50% { opacity: 0.2; box-shadow: none; } 100% { opacity: 0.8; box-shadow: 0 0 0px var(--accent-red); } }
         
-        /* 觀眾播放器 - 全螢幕黑畫面 */
+        /* 觀眾播放器 */
         #viewer-player { position: fixed; inset: 0; background: #080809; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .loading-box { text-align: center; color: var(--text-main); font-family: var(--font-mono); text-transform: uppercase; }
         .loading-text { font-size: 11px; letter-spacing: 4px; margin-bottom: 16px; padding: 0 20px; color: var(--primary);}
@@ -291,6 +320,25 @@
         #btn-exit { top: 24px; left: 24px; color: var(--accent-red); }
         #btn-exit:hover { background: rgba(168, 87, 81, 0.15); border-color: var(--accent-red); }
 
+        /* 觀眾懸浮控制列 (麥克風) */
+        #viewer-controls {
+            position: absolute;
+            bottom: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1002;
+            display: flex;
+            gap: 16px;
+            background: rgba(24, 25, 27, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #viewer-controls .mic-btn { border-radius: 6px; width: 64px; height: 48px; }
+
         #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(24, 25, 27, 0.98); color: var(--text-main); font-family: var(--font-mono); font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 24px; box-sizing: border-box; border-top: 1px solid var(--border); box-shadow: 0 -10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
         #debug-content { flex-grow: 1; overflow-y: auto; word-break: break-all; line-height: 1.8; padding-right: 12px; }
         #debug-content::-webkit-scrollbar { width: 4px; }
@@ -298,7 +346,6 @@
         #btn-debug { position: fixed; bottom: 24px; right: 24px; z-index: 99998; background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); padding: 10px 16px; border-radius: 4px; font-size: 10px; font-family: var(--font-mono); letter-spacing: 2px; cursor: pointer; width: auto; margin: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: all 0.3s; }
         #btn-debug:hover { color: var(--text-main); background: var(--surface-light); }
 
-        /* 全螢幕 QR Code 遮罩樣式 */
         #qr-overlay {
             position: fixed;
             inset: 0;
@@ -313,28 +360,9 @@
             cursor: pointer;
             transition: opacity 0.3s ease;
         }
-        #qr-overlay-content {
-            padding: 24px;
-            background: var(--text-main);
-            border-radius: 8px;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.8);
-        }
-        #qr-overlay-content img, #qr-overlay-content canvas {
-            width: 60vmin !important;
-            height: 60vmin !important;
-            max-width: 500px;
-            max-height: 500px;
-            display: block;
-        }
-        .qr-close-text {
-            margin-top: 36px;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            font-size: 12px;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            animation: pulse 2s infinite;
-        }
+        #qr-overlay-content { padding: 24px; background: var(--text-main); border-radius: 8px; box-shadow: 0 24px 60px rgba(0,0,0,0.8); }
+        #qr-overlay-content img, #qr-overlay-content canvas { width: 60vmin !important; height: 60vmin !important; max-width: 500px; max-height: 500px; display: block; }
+        .qr-close-text { margin-top: 36px; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; letter-spacing: 4px; text-transform: uppercase; animation: pulse 2s infinite; }
     </style>
 </head>
 <body>
@@ -357,7 +385,17 @@
         <div class="status-text">
             <span class="status-dot"></span>Connected Viewers: <span id="viewer-count" style="margin-left:6px; font-weight:400; color:var(--text-main);">0</span>
         </div>
-        <button id="btn-share" class="primary" onclick="startScreenShare()">Start Screen Share</button>
+        
+        <div class="control-row">
+            <button id="btn-share" class="primary" onclick="startScreenShare()">Start Screen Share</button>
+            <button id="presenter-mute-all" class="mic-btn" onclick="toggleMuteAll()" title="Audience Muted (Locked)">
+                <!-- SVG Icon Injected via JS -->
+            </button>
+            <button id="presenter-mic" class="mic-btn" onclick="toggleMic(false)" title="Toggle Microphone">
+                <!-- SVG Icon Injected via JS -->
+            </button>
+        </div>
+        
         <div id="qrcode" title="Click to Enlarge"></div>
     </div>
 
@@ -378,9 +416,14 @@
         </div>
         <video id="remote-video" autoplay playsinline preload="auto"></video>
         <button id="manual-play-btn" onclick="forcePlay()">Tap to Play Stream & Audio</button>
+        
+        <div id="viewer-controls" class="hidden">
+            <button id="viewer-mic" class="mic-btn" onclick="toggleMic(true)" title="Toggle Microphone">
+                <!-- SVG Icon Injected via JS -->
+            </button>
+        </div>
     </div>
 
-    <!-- 偵錯面板 -->
     <div id="debug-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
             <span style="font-weight:400; color:var(--text-main); letter-spacing: 2px;">DIAGNOSTICS & NETWORK LOGS</span>
@@ -390,7 +433,6 @@
     </div>
     <button id="btn-debug" onclick="toggleDebug()">LOG</button>
 
-    <!-- 全螢幕 QR Code 遮罩層 -->
     <div id="qr-overlay" class="hidden" onclick="closeFullscreenQR()">
         <div id="qr-overlay-content"></div>
         <div class="qr-close-text">Tap anywhere to close</div>
@@ -408,11 +450,27 @@
         };
         
         let peer = null;
-        let localStream = null;
+        let localStream = null; 
         let connectedViewers = new Map(); 
         let activeCalls = new Map();      
         let reconnectTimers = new Map();  
         let heartbeatTimer = null;
+
+        // 音訊雙向溝通變數
+        let localMicStream = null;
+        let localMicTrack = null;
+        let isMuted = true; 
+        
+        // 全場靜音管控變數 (預設開啟)
+        let isAllMuted = true;       // 主持人端狀態
+        let isHostMutingAll = true;  // 觀眾端狀態
+
+        const SVG_MIC_ON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+        const SVG_MIC_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+        
+        // 人員與鎖頭 SVG (全場靜音管控)
+        const SVG_AUDIENCE_LOCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><rect x="15" y="14" width="7" height="5" rx="1"></rect><path d="M16.5 14v-2a2 2 0 1 1 4 0v2"></path></svg>`;
+        const SVG_AUDIENCE_UNLOCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><rect x="15" y="14" width="7" height="5" rx="1"></rect><path d="M16.5 14v-1.5a2 2 0 0 1 3.5-.5"></path></svg>`;
 
         function logDebug(msg, isError = false, isWarning = false) {
             const panel = document.getElementById('debug-panel');
@@ -451,7 +509,6 @@
 
         async function fetchIceServers() {
             logDebug("Loading ExpressTURN servers...");
-            
             const iceServers = [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
@@ -465,15 +522,105 @@
                     credential: "G/cOmHLAPAAts04J1oj3AdBl6nE="
                 }
             ];
-            
             logDebug("Successfully loaded ExpressTURN credentials.");
             return iceServers;
         }
 
+        // 初始化麥克風權限與設定
+        async function initAudioContext() {
+            try {
+                localMicStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: true, noiseSuppression: true }, 
+                    video: false 
+                });
+                localMicTrack = localMicStream.getAudioTracks()[0];
+                localMicTrack.enabled = false; // 預設強制靜音
+                isMuted = true;
+                logDebug("Microphone initialized and muted.");
+                renderMicIcon();
+                renderMuteAllIcon();
+            } catch(err) {
+                logDebug(`Microphone access denied: ${err.message}`, true);
+                renderMicIcon(); 
+                renderMuteAllIcon();
+            }
+        }
+
+        // 麥克風開關 (支援檢查全場靜音狀態)
+        function toggleMic(isViewer = false) {
+            if (isViewer && isHostMutingAll) {
+                alert("主持人已開啟全場靜音，暫時無法使用麥克風\nThe host has muted everyone.");
+                return;
+            }
+            if (!localMicTrack) {
+                alert("未偵測到麥克風或權限被拒絕\nMicrophone not found or permission denied.");
+                return;
+            }
+            isMuted = !isMuted;
+            localMicTrack.enabled = !isMuted;
+            renderMicIcon();
+            logDebug(`Microphone is now ${isMuted ? 'MUTED' : 'UNMUTED'}.`);
+        }
+
+        // 全場靜音管控開關 (僅限主持人)
+        function toggleMuteAll() {
+            isAllMuted = !isAllMuted;
+            renderMuteAllIcon();
+            logDebug(`Audience Mute Lock is now ${isAllMuted ? 'ON (LOCKED)' : 'OFF (UNLOCKED)'}.`);
+            
+            // 廣播給所有在線觀眾
+            connectedViewers.forEach((viewer, peerId) => {
+                try { viewer.data.send({ type: 'MUTE_ALL_STATE', state: isAllMuted }); } catch(e){}
+            });
+        }
+
+        // 渲染麥克風按鈕外觀 (SVG)
+        function renderMicIcon() {
+            const pBtn = document.getElementById('presenter-mic');
+            const vBtn = document.getElementById('viewer-mic');
+            
+            [pBtn, vBtn].forEach(btn => {
+                if(btn) {
+                    btn.innerHTML = isMuted ? SVG_MIC_OFF : SVG_MIC_ON;
+                    if(isMuted) {
+                        btn.classList.remove('active');
+                    } else {
+                        btn.classList.add('active');
+                    }
+                }
+            });
+        }
+
+        // 渲染全場靜音按鈕外觀 (SVG)
+        function renderMuteAllIcon() {
+            const btn = document.getElementById('presenter-mute-all');
+            if (!btn) return;
+            btn.innerHTML = isAllMuted ? SVG_AUDIENCE_LOCK : SVG_AUDIENCE_UNLOCK;
+            if (isAllMuted) {
+                btn.classList.remove('active'); // 鎖定狀態(紅)
+                btn.title = "Audience Locked (Click to Unlock)";
+            } else {
+                btn.classList.add('active'); // 解鎖狀態(黃銅金)
+                btn.title = "Audience Unlocked (Click to Lock)";
+            }
+        }
+
+        // 更新觀眾端麥克風被鎖定時的視覺反饋
+        function updateViewerMicLock() {
+            const vBtn = document.getElementById('viewer-mic');
+            if(!vBtn) return;
+            if (isHostMutingAll) {
+                vBtn.classList.add('locked');
+            } else {
+                vBtn.classList.remove('locked');
+            }
+        }
+
         window.onload = async () => {
+            renderMicIcon(); 
+            renderMuteAllIcon();
             const urlParams = new URLSearchParams(window.location.search);
             const roomFromUrl = urlParams.get('room');
-            
             if (roomFromUrl) {
                 document.getElementById('join-id').value = roomFromUrl;
                 await initRole('viewer', true); 
@@ -490,6 +637,7 @@
 
             if (role === 'presenter') {
                 logDebug("Booting Studio Mode...");
+                await initAudioContext(); 
                 switchView('view-presenter');
                 setupPresenter();
             } else {
@@ -497,7 +645,6 @@
                 switchView('view-viewer');
                 if(btnPresent) btnPresent.disabled = false;
                 if(btnView) btnView.disabled = false;
-                
                 if(autoJoin) joinSession();
             }
         }
@@ -518,7 +665,6 @@
                 document.getElementById("qrcode").innerHTML = ""; 
                 new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128, colorDark: "#18191B", colorLight: "#E6E2D6" });
                 
-                // 設定點擊 QR Code 時開啟全螢幕視窗
                 document.getElementById("qrcode").onclick = () => openFullscreenQR(joinUrl);
                 
                 startHeartbeat();
@@ -543,12 +689,37 @@
                         }
                     } else if (data.type === 'VIEWER_READY') {
                         logDebug(`Viewer ${conn.peer} is ready for stream.`);
+                        
+                        // 當新觀眾準備好時，立即同步當前的全場管控狀態給他
+                        try { conn.send({ type: 'MUTE_ALL_STATE', state: isAllMuted }); } catch(e){}
+                        
                         if (localStream) callViewer(conn.peer);
                     }
                 });
 
                 conn.on('close', () => { logDebug(`Viewer closed connection.`); cleanupViewer(conn.peer); });
                 conn.on('error', (err) => { logDebug(`Data Channel Error: ${err.message}`, true); cleanupViewer(conn.peer); });
+            });
+
+            // 接收來自觀眾的呼叫 (語音)
+            peer.on('call', (call) => {
+                if (call.metadata && call.metadata.type === 'voice') {
+                    logDebug(`Incoming voice stream from viewer ${call.peer}.`);
+                    call.answer(localMicStream); 
+                    
+                    call.on('stream', remoteStream => {
+                        let audioEl = document.createElement('audio');
+                        audioEl.autoplay = true;
+                        audioEl.srcObject = remoteStream;
+                        audioEl.id = 'voice-' + call.peer;
+                        document.body.appendChild(audioEl);
+                    });
+                    
+                    call.on('close', () => {
+                        let el = document.getElementById('voice-' + call.peer);
+                        if (el) el.remove();
+                    });
+                }
             });
 
             peer.on('error', (err) => {
@@ -563,21 +734,11 @@
             });
         }
 
-        // 全螢幕 QR Code 顯示與關閉邏輯
         function openFullscreenQR(url) {
             const overlay = document.getElementById('qr-overlay');
             const content = document.getElementById('qr-overlay-content');
-            content.innerHTML = ""; // 清空舊內容
-            
-            // 產生高解析度的 QR Code
-            new QRCode(content, { 
-                text: url, 
-                width: 512, 
-                height: 512, 
-                colorDark: "#18191B", 
-                colorLight: "#E6E2D6" 
-            });
-            
+            content.innerHTML = "";
+            new QRCode(content, { text: url, width: 512, height: 512, colorDark: "#18191B", colorLight: "#E6E2D6" });
             overlay.classList.remove('hidden');
         }
 
@@ -610,6 +771,9 @@
                 try { activeCalls.get(peerId).close(); } catch(e){}
                 activeCalls.delete(peerId);
             }
+            let voiceEl = document.getElementById('voice-' + peerId);
+            if(voiceEl) voiceEl.remove();
+
             updateViewerCount();
         }
 
@@ -620,8 +784,8 @@
             if (activeCalls.has(peerId)) return;
 
             try {
-                logDebug(`Dialing viewer...`);
-                const call = peer.call(peerId, localStream);
+                logDebug(`Dialing viewer for screen share...`);
+                const call = peer.call(peerId, localStream, { metadata: { type: 'screen' } });
                 
                 if (call) {
                     activeCalls.set(peerId, call);
@@ -743,11 +907,15 @@
         }
 
         /* ================= 觀眾端邏輯 ================= */
-        function joinSession() {
+        async function joinSession() {
             const inputId = document.getElementById('join-id').value.trim().toUpperCase();
             if (!inputId) return;
             
             const hostId = ID_PREFIX + inputId; 
+
+            // 在此處請求觀眾麥克風權限 (使用者主動點擊)
+            await initAudioContext();
+            updateViewerMicLock(); // 初始化按鈕外觀
 
             logDebug(`Connecting to Host: ${inputId}`);
             switchView('viewer-player');
@@ -760,47 +928,45 @@
             peer = new Peer(undefined, peerConfig);
 
             peer.on('call', (call) => {
-                logDebug(`Incoming stream. Answering...`);
-                call.answer(); 
-                
-                call.on('stream', (remoteStream) => {
-                    logDebug("Stream track received.");
-                    document.getElementById('player-loading').style.display = 'none';
-                    document.getElementById('btn-fullscreen').style.display = 'block'; 
+                if (call.metadata && call.metadata.type === 'screen') {
+                    logDebug(`Incoming screen stream. Answering...`);
+                    call.answer(); 
                     
-                    const videoEl = document.getElementById('remote-video');
-                    if (videoEl.srcObject !== remoteStream) {
-                        videoEl.srcObject = remoteStream;
-                    }
-                    
-                    let playAttempted = false;
-
-                    const attemptPlay = () => {
-                        playAttempted = true;
-                        videoEl.play().then(() => {
-                            logDebug("Autoplay succeeded!");
-                            document.getElementById('manual-play-btn').style.display = 'none';
-                        }).catch(e => {
-                            logDebug(`Browser Blocked Autoplay (Audio policy). Require tap.`, true);
-                            document.getElementById('manual-play-btn').style.display = 'block';
-                        });
-                    };
-
-                    videoEl.onloadedmetadata = attemptPlay;
-                    
-                    setTimeout(() => {
-                        if (!playAttempted) attemptPlay();
-                    }, 1500);
-
-                    setTimeout(() => {
-                        if (videoEl.paused) {
-                            logDebug("Video stall detected. Showing manual play button.", false, true);
-                            document.getElementById('manual-play-btn').style.display = 'block';
+                    call.on('stream', (remoteStream) => {
+                        logDebug("Screen Stream track received.");
+                        document.getElementById('player-loading').style.display = 'none';
+                        document.getElementById('btn-fullscreen').style.display = 'block'; 
+                        
+                        const videoEl = document.getElementById('remote-video');
+                        if (videoEl.srcObject !== remoteStream) {
+                            videoEl.srcObject = remoteStream;
                         }
-                    }, 3000);
-                });
+                        
+                        let playAttempted = false;
+                        const attemptPlay = () => {
+                            playAttempted = true;
+                            videoEl.play().then(() => {
+                                logDebug("Autoplay succeeded!");
+                                document.getElementById('manual-play-btn').style.display = 'none';
+                            }).catch(e => {
+                                logDebug(`Browser Blocked Autoplay. Require tap.`, true);
+                                document.getElementById('manual-play-btn').style.display = 'block';
+                            });
+                        };
 
-                call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); });
+                        videoEl.onloadedmetadata = attemptPlay;
+                        setTimeout(() => { if (!playAttempted) attemptPlay(); }, 1500);
+                        setTimeout(() => {
+                            if (videoEl.paused) {
+                                document.getElementById('manual-play-btn').style.display = 'block';
+                            }
+                        }, 3000);
+                    });
+
+                    call.on('error', (err) => { logDebug(`Media Error: ${err.message}`, true); });
+                } else {
+                    call.answer();
+                }
             });
 
             peer.on('open', (viewerId) => {
@@ -813,6 +979,27 @@
                     logDebug("Data Channel connected.");
                     loadingMsg.innerText = "CONNECTED / WAITING FOR HOST STREAM...";
                     conn.send({ type: 'VIEWER_READY' });
+
+                    // 資料通道建立後，主動播打語音電話給主持人
+                    if (localMicStream) {
+                        logDebug("Initiating voice channel to host...");
+                        const voiceCall = peer.call(hostId, localMicStream, { metadata: { type: 'voice' } });
+                        
+                        voiceCall.on('stream', remoteStream => {
+                            logDebug("Host voice stream received.");
+                            let audioEl = document.getElementById('host-voice');
+                            if (!audioEl) {
+                                audioEl = document.createElement('audio');
+                                audioEl.id = 'host-voice';
+                                audioEl.autoplay = true;
+                                document.body.appendChild(audioEl);
+                            }
+                            audioEl.srcObject = remoteStream;
+                            
+                            document.getElementById('viewer-controls').classList.remove('hidden');
+                        });
+                        voiceCall.on('error', (err) => logDebug(`Voice call error: ${err.message}`, true));
+                    }
                 };
 
                 if (conn.open) handleConnOpen(); else conn.on('open', handleConnOpen);
@@ -820,6 +1007,20 @@
                 conn.on('data', (data) => {
                     if (data.type === 'PING') {
                         conn.send({ type: 'PONG' });
+                    }
+                    else if (data.type === 'MUTE_ALL_STATE') {
+                        isHostMutingAll = data.state;
+                        if (isHostMutingAll) {
+                            // 主持人鎖定全場，強制關閉麥克風
+                            isMuted = true;
+                            if (localMicTrack) localMicTrack.enabled = false;
+                            renderMicIcon();
+                            logDebug("Host locked all microphones.");
+                        } else {
+                            logDebug("Host unlocked microphones.");
+                        }
+                        // 更新按鈕鎖定樣式
+                        updateViewerMicLock();
                     }
                     else if (data.type === 'START_SHARE') {
                         loadingMsg.innerText = "LOADING STREAM...";
@@ -833,7 +1034,6 @@
                         document.getElementById('btn-fullscreen').style.display = 'none';
                         
                         if (document.fullscreenElement) document.exitFullscreen();
-
                         alert("主持人已停止分享螢幕\nHost has stopped screen sharing.");
                     }
                 });
@@ -864,9 +1064,13 @@
                 logDebug(`Manual play failed: ${e.message}`, true);
                 alert("Please ensure your browser allows video & audio playback.");
             });
+            
+            const audioEl = document.getElementById('host-voice');
+            if(audioEl && audioEl.paused) {
+                audioEl.play().catch(e=>console.log("Audio play error", e));
+            }
         }
 
-        /* 全螢幕控制 */
         function toggleFullScreen() {
             const player = document.getElementById('viewer-player');
             if (!document.fullscreenElement) {
@@ -890,7 +1094,6 @@
             }
         }
 
-        /* 退出並確認邏輯 */
         function confirmExit() {
             const isConfirmed = window.confirm("確定要退出觀看嗎？\nAre you sure you want to exit?");
             if (isConfirmed) {
@@ -903,6 +1106,10 @@
                 
                 if (peer) {
                     try { peer.destroy(); } catch(e) { logDebug(`Peer destroy error: ${e.message}`, true); }
+                }
+                
+                if (localMicStream) {
+                    localMicStream.getTracks().forEach(track => track.stop());
                 }
 
                 window.location.href = 'https://kenchan20141.github.io/project/';
