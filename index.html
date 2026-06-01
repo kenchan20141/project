@@ -336,7 +336,17 @@
             border-radius: 8px;
             border: 1px solid rgba(255,255,255,0.05);
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: opacity 0.5s ease, transform 0.5s ease;
         }
+
+
+/* 新增閒置時的隱藏樣式 */
+#viewer-controls.idle-hide {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 15px); /* 稍微往下沉的淡出效果 */
+}
+        
         #viewer-controls .mic-btn { border-radius: 6px; width: 64px; height: 48px; }
 
         #debug-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 35vh; background: rgba(24, 25, 27, 0.98); color: var(--text-main); font-family: var(--font-mono); font-size: 11px; z-index: 99999; display: none; flex-direction: column; padding: 24px; box-sizing: border-box; border-top: 1px solid var(--border); box-shadow: 0 -10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
@@ -455,6 +465,35 @@
         let activeCalls = new Map();      
         let reconnectTimers = new Map();  
         let heartbeatTimer = null;
+
+
+// --- 新增：觀眾端控制列自動隱藏變數 ---
+let controlsTimeout = null;
+
+// --- 新增：重置閒置計時器的函數 ---
+function resetControlsTimeout() {
+    const controls = document.getElementById('viewer-controls');
+    // 如果控制列還沒連線顯示（包含 hidden），就不執行
+    if (controls.classList.contains('hidden')) return;
+
+    // 顯示控制列
+    controls.classList.remove('idle-hide');
+
+    // 清除舊的計時器
+    clearTimeout(controlsTimeout);
+
+    // 設定 5 秒 (5000 毫秒) 後自動隱藏
+    controlsTimeout = setTimeout(() => {
+        controls.classList.add('idle-hide');
+    }, 5000);
+}
+
+// --- 新增：監聽使用者的各種動作來喚醒 UI ---
+['mousemove', 'mousedown', 'touchstart', 'touchmove', 'scroll', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, resetControlsTimeout);
+});
+
+        
 
         // 音訊雙向溝通變數
         let localMicStream = null;
@@ -997,6 +1036,7 @@
                             audioEl.srcObject = remoteStream;
                             
                             document.getElementById('viewer-controls').classList.remove('hidden');
+                            resetControlsTimeout(); // 啟動閒置自動隱藏計時器
                         });
                         voiceCall.on('error', (err) => logDebug(`Voice call error: ${err.message}`, true));
                     }
