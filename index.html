@@ -579,11 +579,11 @@ function resetControlsTimeout() {
                 renderMicIcon();
                 renderMuteAllIcon();
             } catch(err) {
-                logDebug(`Microphone access denied: ${err.message}`, true);
+                // 設備無麥克風或權限拒絕時，靜默處理，不彈出 LOG 通知
+                // console.warn("Microphone access denied or not found."); // 若需保留純控制台記錄可取消註解
                 renderMicIcon(); 
                 renderMuteAllIcon();
             }
-        }
 
         // 麥克風開關 (支援檢查全場靜音狀態)
         function toggleMic(isViewer = false) {
