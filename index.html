@@ -586,13 +586,14 @@ function resetControlsTimeout() {
             }
 
         // 麥克風開關 (支援檢查全場靜音狀態)
-        function toggleMic(isViewer = false) {
+         function toggleMic(isViewer = false) {
             if (isViewer && isHostMutingAll) {
-                alert("主持人已開啟全場靜音，暫時無法使用麥克風\nThe host has muted everyone.");
+                // 可選：若希望主持人靜音時也不彈窗，可將下方 alert 註解，或保留僅作為提示
+                // alert("主持人已開啟全場靜音，暫時無法使用麥克風\nThe host has muted everyone.");
                 return;
             }
             if (!localMicTrack) {
-                alert("未偵測到麥克風或權限被拒絕\nMicrophone not found or permission denied.");
+                // 沒有麥克風時靜默返回，不彈出任何通知
                 return;
             }
             isMuted = !isMuted;
