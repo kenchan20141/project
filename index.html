@@ -578,11 +578,12 @@ function resetControlsTimeout() {
                 logDebug("Microphone initialized and muted.");
                 renderMicIcon();
                 renderMuteAllIcon();
-            } catch(err) {
-                logDebug(`Microphone access denied: ${err.message}`, true);
-                renderMicIcon(); 
-                renderMuteAllIcon();
-            }
+           } catch(err) {
+            // 移除 true 參數，讓它變成一般訊息，就不會觸發 LOG 面板彈出了
+            logDebug(`Microphone access denied: ${err.message}`);
+            renderMicIcon(); 
+            renderMuteAllIcon();
+        }
         }
 
         // 麥克風開關 (支援檢查全場靜音狀態)
