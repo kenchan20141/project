@@ -339,12 +339,13 @@
             transition: opacity 0.5s ease, transform 0.5s ease;
         }
 
-        /* 閒置時的隱藏樣式 */
-        #viewer-controls.idle-hide {
-            opacity: 0;
-            pointer-events: none;
-            transform: translate(-50%, 15px); /* 稍微往下沉的淡出效果 */
-        }
+
+/* 新增閒置時的隱藏樣式 */
+#viewer-controls.idle-hide {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 15px); /* 稍微往下沉的淡出效果 */
+}
         
         #viewer-controls .mic-btn { border-radius: 6px; width: 64px; height: 48px; }
 
@@ -465,26 +466,34 @@
         let reconnectTimers = new Map();  
         let heartbeatTimer = null;
 
-        // 觀眾端控制列自動隱藏變數
-        let controlsTimeout = null;
 
-        // 重置閒置計時器的函數
-        function resetControlsTimeout() {
-            const controls = document.getElementById('viewer-controls');
-            if (controls.classList.contains('hidden')) return;
+// --- 新增：觀眾端控制列自動隱藏變數 ---
+let controlsTimeout = null;
 
-            controls.classList.remove('idle-hide');
-            clearTimeout(controlsTimeout);
+// --- 新增：重置閒置計時器的函數 ---
+function resetControlsTimeout() {
+    const controls = document.getElementById('viewer-controls');
+    // 如果控制列還沒連線顯示（包含 hidden），就不執行
+    if (controls.classList.contains('hidden')) return;
 
-            controlsTimeout = setTimeout(() => {
-                controls.classList.add('idle-hide');
-            }, 5000);
-        }
+    // 顯示控制列
+    controls.classList.remove('idle-hide');
 
-        // 監聽使用者的各種動作來喚醒 UI
-        ['mousemove', 'mousedown', 'touchstart', 'touchmove', 'scroll', 'keydown'].forEach(evt => {
-            window.addEventListener(evt, resetControlsTimeout);
-        });
+    // 清除舊的計時器
+    clearTimeout(controlsTimeout);
+
+    // 設定 5 秒 (5000 毫秒) 後自動隱藏
+    controlsTimeout = setTimeout(() => {
+        controls.classList.add('idle-hide');
+    }, 5000);
+}
+
+// --- 新增：監聽使用者的各種動作來喚醒 UI ---
+['mousemove', 'mousedown', 'touchstart', 'touchmove', 'scroll', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, resetControlsTimeout);
+});
+
+        
 
         // 音訊雙向溝通變數
         let localMicStream = null;
@@ -570,10 +579,11 @@
                 renderMicIcon();
                 renderMuteAllIcon();
            } catch(err) {
-                logDebug(`Microphone access denied: ${err.message}`);
-                renderMicIcon(); 
-                renderMuteAllIcon();
-            }
+            // 移除 true 參數，讓它變成一般訊息，就不會觸發 LOG 面板彈出了
+            logDebug(`Microphone access denied: ${err.message}`);
+            renderMicIcon(); 
+            renderMuteAllIcon();
+        }
         }
 
         // 麥克風開關 (支援檢查全場靜音狀態)
@@ -850,39 +860,13 @@
         }
 
         async function startScreenShare() {
-            let newStream = null;
-
-            // 漸進式獲取螢幕分享串流，確保移動端/平板環境正常呼叫
             try {
-                // 嘗試 1：標準參數 (含音訊、高解析度) - 桌機最佳體驗
-                newStream = await navigator.mediaDevices.getDisplayMedia({ 
+                const newStream = await navigator.mediaDevices.getDisplayMedia({ 
                     video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }, 
                     audio: true 
                 });
-            } catch (err) {
-                logDebug(`Initial screen capture failed: ${err.message}. Retrying with audio disabled...`, false, true);
-                try {
-                    // 嘗試 2：排除音訊 (部分行動裝置瀏覽器如 iOS Safari 在 getDisplayMedia 下不支援擷取音訊)
-                    newStream = await navigator.mediaDevices.getDisplayMedia({ 
-                        video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }
-                    });
-                } catch (err2) {
-                    logDebug(`Secondary screen capture failed: ${err2.message}. Trying standard compatibility fallback...`, false, true);
-                    try {
-                        // 嘗試 3：使用系統預設最基本設定，不帶任何限制約束 (高度相容各系統手機與平板)
-                        newStream = await navigator.mediaDevices.getDisplayMedia({ 
-                            video: true 
-                        });
-                    } catch (err3) {
-                        logDebug(`All screen share attempts failed: ${err3.message}`, true);
-                        alert("無法開啟螢幕分享。手機與平板端請確認您已授予瀏覽器『錄製螢幕與系統資訊』的系統權限，且必須使用安全的 HTTPS 連線環境。\nScreen share permission denied or not supported.");
-                        return;
-                    }
-                }
-            }
-
-            try {
-                logDebug("Display Media Acquired!");
+                
+                logDebug("Display Media Acquired (Audio enabled)!");
                 document.getElementById('local-video').srcObject = newStream;
                 document.querySelector('.preview-wrapper').classList.add('active');
 
@@ -952,7 +936,7 @@
                 };
 
             } catch (err) {
-                logDebug(`Display processing error: ${err.message}`, true);
+                logDebug(`Screen Share Error: ${err.message}`, true);
             }
         }
 
